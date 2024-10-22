@@ -55,7 +55,10 @@ class FultonMarketAnalysis():
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        
+        if os.path.exists(all([os.path.join(storage_dir, 'spring_centers.npy') for storage_dir in self.storage_dirs])):
+            self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
+            self.spring_centers = self.spring_centers_list[-1]
+            
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
         self.reduced_potentials = [e / get_kT(temps) for (e, temps) in zip(self.energies, self.temperatures_list)]
@@ -315,17 +318,24 @@ class FultonMarketAnalysis():
         """
         determine the indices (with respect to the last simulation) which are missing from other simulations
         """
-        
+        # Set interpolation attribute
+        if hasattr(self, 'spring_centers_list'):
+            interpolation_list = [centers[:,0] for centers in self.spring_centers_list]
+            final_set = self.spring_centers[:,0]
+        else:
+            interpolation_list = self.temperatures_list
+            final_set = self.temperatures
+            
         # Iterate through temperatures
         self.interpolation_inds = []
-        for i, sim_temps in enumerate(self.temperatures_list):
+        for i, set_i in enumerate(interpolation_list):
             missing_sim_inds = []
-            for i, temp in enumerate(self.temperatures):
-                if temp not in sim_temps:
+            for i, s in enumerate(final_set):
+                if s not in set_i:
                     missing_sim_inds.append(i)
         
             # Assert that interpolation made sense
-            assert len(missing_sim_inds) + len(sim_temps) == len(self.temperatures)
+            assert len(missing_sim_inds) + len(set_i) == len(final_set), f'{len(missing_sim_inds)}, {len(set_i)}, {len(final_set)}'
             self.interpolation_inds.append(missing_sim_inds)
 
 

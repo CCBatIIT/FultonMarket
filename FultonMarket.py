@@ -20,6 +20,7 @@ faulthandler.enable()
 
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
+rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
 class FultonMarket():
     """
@@ -80,10 +81,13 @@ class FultonMarket():
             init_overlap_thresh: float=0.5, 
             term_overlap_thresh: float=0.35,
             output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/'),
-            restrained_atoms_dsl:str=None, 
-            K_max=83.68):
+            restrained_atoms_dsl:str=None,
+            spring_centers2_pdb:str=None,
+            K=83.68):
         """
-        Run parallel temporing replica exchange. 
+        Run parallel tempering replica exchange.
+        if restrained_atoms_dsl is provided, then parallel tempering will also be restrained to the initial positions with spring constants K
+        if spring_centers2_pdb is also provided, then the spring centers will shift between the initial positions and spring_centers2 at high temperature
 
         Parameters:
         -----------
@@ -125,15 +129,28 @@ class FultonMarket():
         self.total_sim_time = total_sim_time
         self.restrained_atoms_dsl = restrained_atoms_dsl
         self.temperatures = [temp*unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
+        
         if restrained_atoms_dsl is not None: #Leave the top 20% of states unrestrained
-            n_unrestrained = n_replicates // 5
-            self.spring_constants = [cons * spring_constant_unit for cons in reversed(geometric_distribution(0, K_max, n_replicates - n_unrestrained))]
-            self.spring_constants += [0.0 * spring_constant_unit for i in range(n_unrestrained)]
+            self.spring_constants = [K * spring_constant_unit for i in range(n_replicates)]
             assert len(self.spring_constants) == len(self.temperatures)
-            restrained_positions = self.init_positions
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Running with restraints', flush=True)
         else:
             self.spring_constants = None
         
+        if spring_centers2_pdb is not None:
+            # Unpack .pdb
+            self.spring_centers = self.make_interpolated_positions_array(self.input_pdb, spring_centers2_pdb, n_replicates) #All atoms, not just protein
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Second Spring Centers and Made the Shifting Center Schedule', flush=True)
+            
+            # Additionally, in this Umbrella Sampling mode - the temps should all be the max
+            self.temperatures = [T_max * unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
+            
+        elif self.spring_constants is not None:
+            self.spring_centers = np.array([self.init_positions for i in range(n_replicates)])
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Restraining All States to the Initial Positions', flush=True)
+        else:
+            self.spring_centers = None
+
         ref_state = states.ThermodynamicState(system=self.system, temperature=self.temperatures[0], pressure=1.0*unit.bar)
         self.output_ncdf = os.path.join(output_dir, 'output.ncdf')
         checkpoint_ncdf = os.path.join(output_dir, 'output_checkpoint.ncdf')
@@ -151,6 +168,8 @@ class FultonMarket():
         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Temperature Schedule', [np.round(T._value, 1) for T in self.temperatures], 'Kelvin', flush=True)
         if self.restrained_atoms_dsl is not None:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Restraint Schedule', [np.round(T._value, 1) for T in self.spring_constants], spring_constant_unit, flush=True)
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Spring Center Schedule', np.round(rmsd(self.spring_centers[:], self.spring_centers[0]), 2), 'nm', flush=True)
+            
 
         # Loop through short 50 ns simulations to allow for .ncdf truncation
         self._configure_experiment_parameters(sim_length=sim_length)
@@ -186,19 +205,18 @@ class FultonMarket():
             if self.restrained_atoms_dsl is not None:
                 params['restrained_atoms_dsl'] = self.restrained_atoms_dsl
                 params['mdtraj_topology'] = md.Topology.from_openmm(self.pdb.topology)
-                params['restraint_positions'] = restrained_positions
-             
+                params['spring_centers'] = self.spring_centers
+            
             simulation = Randolph(**params)
             
             # Run simulation
             simulation.main(init_overlap_thresh=init_overlap_thresh, term_overlap_thresh=term_overlap_thresh)
 
             # Save simulation
-            if restrained_atoms_dsl is not None:
-                self.temperatures, self.spring_constants = simulation.save_simulation(self.save_dir)
-            else:
+            if self.spring_centers is None and restrained_atoms_dsl is None:
                 self.temperatures = simulation.save_simulation(self.save_dir)
-
+            else:
+                self.temperatures, self.spring_constants, self.spring_centers = simulation.save_simulation(self.save_dir)
             
             # Delete output.ncdf files if not last simulation 
             if not self.sim_no+1 == self.total_n_sims:
@@ -221,6 +239,7 @@ class FultonMarket():
         if self.spring_constants is not None:
             self.spring_constants = np.load(os.path.join(load_dir, 'spring_constants.npy'))
             self.spring_constants = [s*spring_constant_unit for s in self.spring_constants]
+            self.spring_centers = np.load(os.path.join(load_dir, 'spring_centers.npy'))
         
         try:
             init_positions = np.load(os.path.join(load_dir, 'positions.npy'))[-1] 
@@ -280,4 +299,25 @@ class FultonMarket():
         ncfile.close()
         
         return velocities, positions, box_vectors, state_inds
+
+    def make_interpolated_positions_array(self, spring_centers1_pdb, spring_centers2_pdb, num_replicates):
+        """
+        Create a positions array linearly interpolating from spring_centers1_pdb to spring_centers2_pdb
+        """
+        #Get the important coordinates from two pdbs, aligning them
+        traj1, traj2 = md.load(spring_centers1_pdb), md.load(spring_centers2_pdb)
+        prot_inds1, prot_inds2 = traj1.top.select('protein'), traj2.top.select('protein')
+        assert np.alltrue(prot_inds1 == prot_inds2)
+        not_prot_inds1 = traj1.top.select('not protein')
+        traj2 = traj2.superpose(traj1, atom_indices=prot_inds1)
+        xyz1, xyz2 = traj1.xyz[0], traj2.xyz[0]
+        #Create the array
+        positions_array = np.empty((num_replicates, xyz1.shape[0], 3))
+        lambdas = np.linspace(1,0,num_replicates)
+        gammas = 1 - lambdas
+        for i in range(num_replicates):
+            positions_array[i, prot_inds1] = lambdas[i]*xyz1[prot_inds1] + gammas[i]*xyz2[prot_inds2]
+            positions_array[i, not_prot_inds1] = xyz1[not_prot_inds1]
+        
+        return positions_array
 
