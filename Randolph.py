@@ -14,7 +14,7 @@ from typing import List
 from datetime import datetime
 import mdtraj as md
 from copy import deepcopy
-from shorten_replica_exchange import truncate_ncdf
+from FultonMarketUtils import *
 
 
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
@@ -336,56 +336,4 @@ class Randolph():
             self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_box_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
             if self.init_velocities is not None:
                 self.init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
-
-
-
-    def _restrain_atoms_by_dsl(self, thermodynamic_state, topology, atoms_dsl, spring_constant, spring_center):
-        """
-        Unceremoniously Ripped from the OpenMMTools github, simply to change sigma to K
-        Apply a soft harmonic restraint to the given atoms.
-        This modifies the ``ThermodynamicState`` object.
-        Parameters
-        ----------
-        thermodynamic_state : openmmtools.states.ThermodynamicState
-            The thermodynamic state with the system. This will be modified.
-        topology : mdtraj.Topology or openmm.Topology
-            The topology of the system.
-        atoms_dsl : str
-           The MDTraj DSL string for selecting the atoms to restrain.
-        spring_constant : openmm.unit.Quantity, optional
-            Controls the strength of the restrain. The smaller, the tighter
-            (units of distance, default is 3.0*angstrom).
-        """
-
-        # Make sure the topology is an MDTraj topology.
-        if isinstance(topology, md.Topology):
-            mdtraj_topology = topology
-        else:
-            mdtraj_topology = md.Topology.from_openmm(topology)
-        
-        #Determine indices of the atoms to restrain
-        restrained_atom_indices = mdtraj_topology.select(atoms_dsl)
-        if len(restrained_atom_indices) == 0:
-            raise Exception('No Atoms To Restrain!')
-        
-        #Assign Spring Constant, ensuring it is the appropriate unit
-        K = spring_constant  # Spring constant.
-        if type(K) != unit.Quantity:
-            K = K * spring_constant_unit
-        elif K.unit != spring_constant_unit:
-            raise Exception('Improper Spring Constant Unit')
-        
-        #Energy and Force for Restraint
-        energy_expression = '(K/2)*periodicdistance(x, y, z, x0, y0, z0)^2'
-        restraint_force = openmm.CustomExternalForce(energy_expression)
-        restraint_force.addGlobalParameter('K', K)
-        restraint_force.addPerParticleParameter('x0')
-        restraint_force.addPerParticleParameter('y0')
-        restraint_force.addPerParticleParameter('z0')
-        for index in restrained_atom_indices:
-            parameters = spring_center[index,:]
-            restraint_force.addParticle(index, parameters)
-        a_stupid_copied_system = thermodynamic_state.system
-        a_stupid_copied_system.addForce(restraint_force)
-        thermodynamic_state.system = a_stupid_copied_system
 

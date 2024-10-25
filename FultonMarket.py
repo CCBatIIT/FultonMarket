@@ -13,14 +13,11 @@ import netCDF4 as nc
 from typing import List
 from datetime import datetime
 import mdtraj as md
-from shorten_replica_exchange import truncate_ncdf
+from FultonMarketUtils import *
 from Randolph import Randolph
 import faulthandler
 faulthandler.enable()
 
-geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
-spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
-rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
 class FultonMarket():
     """
@@ -139,7 +136,7 @@ class FultonMarket():
         
         if spring_centers2_pdb is not None:
             # Unpack .pdb
-            self.spring_centers = self.make_interpolated_positions_array(self.input_pdb, spring_centers2_pdb, n_replicates) #All atoms, not just protein
+            self.spring_centers = make_interpolated_positions_array(self.input_pdb, spring_centers2_pdb, n_replicates) #All atoms, not just protein
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Second Spring Centers and Made the Shifting Center Schedule', flush=True)
             
             # Additionally, in this Umbrella Sampling mode - the temps should all be the max
@@ -299,25 +296,3 @@ class FultonMarket():
         ncfile.close()
         
         return velocities, positions, box_vectors, state_inds
-
-    def make_interpolated_positions_array(self, spring_centers1_pdb, spring_centers2_pdb, num_replicates):
-        """
-        Create a positions array linearly interpolating from spring_centers1_pdb to spring_centers2_pdb
-        """
-        #Get the important coordinates from two pdbs, aligning them
-        traj1, traj2 = md.load(spring_centers1_pdb), md.load(spring_centers2_pdb)
-        prot_inds1, prot_inds2 = traj1.top.select('protein'), traj2.top.select('protein')
-        assert np.alltrue(prot_inds1 == prot_inds2)
-        not_prot_inds1 = traj1.top.select('not protein')
-        traj2 = traj2.superpose(traj1, atom_indices=prot_inds1)
-        xyz1, xyz2 = traj1.xyz[0], traj2.xyz[0]
-        #Create the array
-        positions_array = np.empty((num_replicates, xyz1.shape[0], 3))
-        lambdas = np.linspace(1,0,num_replicates)
-        gammas = 1 - lambdas
-        for i in range(num_replicates):
-            positions_array[i, prot_inds1] = lambdas[i]*xyz1[prot_inds1] + gammas[i]*xyz2[prot_inds2]
-            positions_array[i, not_prot_inds1] = xyz1[not_prot_inds1]
-        
-        return positions_array
-
