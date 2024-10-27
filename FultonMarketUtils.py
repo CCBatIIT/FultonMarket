@@ -86,7 +86,7 @@ def make_interpolated_positions_array(spring_centers1_pdb, spring_centers2_pdb, 
     #Get the important coordinates from two pdbs, aligning them
     traj1, traj2 = md.load(spring_centers1_pdb), md.load(spring_centers2_pdb)
     prot_inds1, prot_inds2 = traj1.top.select('protein'), traj2.top.select('protein')
-    assert np.alltrue(prot_inds1 == prot_inds2)
+    assert np.array_equal(prot_inds1, prot_inds2)
     not_prot_inds1 = traj1.top.select('not protein')
     traj2 = traj2.superpose(traj1, atom_indices=prot_inds1)
     xyz1, xyz2 = traj1.xyz[0], traj2.xyz[0]
