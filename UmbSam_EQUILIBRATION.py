@@ -57,7 +57,12 @@ stdout_fn = os.path.join(save_dir, 'trailblazing.stdout')
 dcd_fn = os.path.join(save_dir, 'trailblazing.dcd')
 final_pos_fn = os.path.join(save_dir, 'final_pos.dcd')
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Saving stdout, dcd, and final positions to:', stdout_fn, dcd_fn, final_pos_fn, flush=True)
-
+if os.path.exists(dcd_fn):
+    traj = md.load(dcd_fn, top=centroid_A_pdb)
+    n_frames_ran = traj.n_frames
+else:
+    n_frames_ran = 0
+print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found number of frames already ran to be:', n_frames_ran, flush=True)
 
 
 #Assign the restraints to the thermodynamic states
@@ -84,7 +89,7 @@ print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Build spring center
 # Simulation length parameters
 ts = 2*unit.femtosecond
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found timestep of:', ts, flush=True)
-n_frames_per_replicate = 2500  
+n_frames_per_replicate = 2500 
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found no. of frames per replicate:', n_frames_per_replicate, flush=True)
 time_btw_frames = 1*unit.picosecond 
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found time between frames:', time_btw_frames, flush=True)
@@ -96,16 +101,8 @@ n_frames_total = n_frames_per_replicate * num_replicates
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found total no. of frames:', n_frames_total, flush=True)
 
 
-
 # Input positions
 init_positions = pdb.getPositions(asNumpy=True)
-init_box_vectors = system_A_init.getDefaultPeriodicBoxVectors()
-
-
-# Ensure that these files don't exist yet
-for fname in [dcd_fn, stdout_fn]: 
-    if os.path.isfile(fname): 
-        os.remove(fname)
 
 
 # Reporter Parameters
@@ -113,57 +110,92 @@ SDR_params = dict(file=stdout_fn, reportInterval=nstdout, step=True, time=True,
                   potentialEnergy=True, temperature=True, progress=False,
                   remainingTime=False, speed=True, volume=True,
                   totalSteps=n_frames_total, separator=' : ')
-DCDR_params = dict(file=dcd_fn, reportInterval=n_steps_per_frame)
-
+DCDR_params = dict(file=dcd_fn, reportInterval=n_steps_per_frame, enforcePeriodicBox=True)
 
 
 # Iterate through spring centers and simulate
 final_pos = np.empty((len(spring_centers), init_positions.shape[0], 3))
 final_box_vec = np.empty((len(spring_centers), 3, 3))
-for i, spring_center in enumerate(spring_centers):
-    print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Beginning simulation for replicate', str(i) + '...', flush=True)
 
-    # Deep copy the init system, without the restraints or barostat, then add them
-    system = copy.deepcopy(system_A_init)
-    restrain_openmm_system_by_dsl(system, mdtraj_topology, restraint_selection_string, spring_constant, spring_center)
-    system.addForce(MonteCarloBarostat(pressure, temp_max, 100))
-    
-    # Define the integrator and simulation etc.
-    integrator = LangevinIntegrator(temp_max, 1/unit.picosecond, ts)
-    simulation = Simulation(openmm_topology, system, integrator)
+while n_frames_ran < n_frames_per_replicate * num_replicates:
+    for i, spring_center in enumerate(spring_centers):
 
-    # First simulation checks, set positions and start reporters differently
-    if i == 0:
-        simulation.context.setPositions(init_positions)
-        simulation.context.setVelocitiesToTemperature(temp_max)
-        for param_set in [SDR_params, DCDR_params]:
-            param_set['append'] = False
-    else:
-        simulation.context.setPositions(last_state.getPositions())
-        simulation.context.setVelocities(last_state.getVelocities())
-        for param_set in [SDR_params, DCDR_params]:
-            param_set['append'] = True
-    
-    # Init and append reporters
-    SDR = StateDataReporter(**SDR_params)
-    DCDR = DCDReporter(**DCDR_params)
-    simulation.reporters.append(SDR)
-    simulation.reporters.append(DCDR)
+        # If the dcd has these frames, just load
+        if n_frames_ran > i * n_frames_per_replicate:
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Loading output for replicate', str(i) + '...', flush=True)
+            final_pos[i] = traj.xyz[i*n_frames_per_replicate]
+            final_box_vec[i] = traj.unitcell_vectors[i*n_frames_per_replicate]
 
-    # Run that bish ---> PAUSE -DC
-    start = datetime.now()
-    print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-    simulation.minimizeEnergy() 
-    print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished', flush=True)
-    print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Taking', n_steps_per_frame * n_frames_per_replicate, 'steps', flush=True)
-    simulation.step(n_steps_per_frame * n_frames_per_replicate)
-    print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Time to simulate replicate', i, 'for', n_frames_per_replicate * time_btw_frames, 'was', datetime.now() - start, flush=True)
+        else:            
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Beginning simulation for replicate', str(i) + '...', flush=True)
 
-    # After the run, we need the state to set the next positions
-    last_state = simulation.context.getState(getPositions=True, getVelocities=True)
-    final_pos[i] = last_state.getPositions(asNumpy=True)
-    final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)
-    
+            # Deep copy the init system, without the restraints or barostat, then add them
+            system = copy.deepcopy(system_A_init)
+            restrain_openmm_system_by_dsl(system, mdtraj_topology, restraint_selection_string, spring_constant, spring_center)
+            system.addForce(MonteCarloBarostat(pressure, temp_max, 100))
+            
+            # Define the integrator and simulation etc.
+            integrator = LangevinIntegrator(temp_max, 1/unit.picosecond, ts)
+            simulation = Simulation(openmm_topology, system, integrator)
+        
+            # First simulation checks, set positions and start reporters differently
+            if 'last_state' in locals():  
+                init_positions = last_state.getPositions()
+                simulation.context.setPositions(init_positions)
+                simulation.context.setVelocities(last_state.getVelocities())
+                append = True
+                
+            else:
+                if i == 0:
+                    append = False
+                    
+                else:
+                    temp_pdb = os.path.join(os.getcwd(), 'temp.pdb')
+                    traj[-1].save_pdb(temp_pdb)
+                    pdb = PDBFile(temp_pdb)
+                    init_positions = pdb.getPositions(asNumpy=True)
+                    append = True
+                    
+                simulation.context.setPositions(init_positions)
+                simulation.context.setVelocitiesToTemperature(temp_max)
+
+            for param_set in [SDR_params, DCDR_params]:
+                    param_set['append'] = append
+            
+            # Init and append reporters
+            SDR = StateDataReporter(**SDR_params)
+            print(DCDR_params)
+            DCDR = DCDReporter(**DCDR_params)
+            simulation.reporters.append(SDR)
+            simulation.reporters.append(DCDR)
+        
+            # Run that bish ---> PAUSE -DC
+            start = datetime.now()
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
+            simulation.minimizeEnergy() 
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished', flush=True)
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Taking', n_steps_per_frame * n_frames_per_replicate, 'steps', flush=True)
+            
+            # Try to take steps, if not interpolate and start for loop again
+            try:
+                simulation.step(n_steps_per_frame * n_frames_per_replicate)
+            except ValueError:
+                spring_centers = np.insert(spring_centers, i, np.mean(spring_center, spring_centers[i-1]))
+                final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)))
+                final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)))
+                num_replicates += 1
+
+                break 
+                
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Time to simulate replicate', i, 'for', n_frames_per_replicate * time_btw_frames, 'took', datetime.now() - start, flush=True)
+        
+            # After the run, we need the state to set the next positions
+            last_state = simulation.context.getState(getPositions=True, getVelocities=True)
+            final_pos[i] = last_state.getPositions(asNumpy=True)
+            box_vec = last_state.getPeriodicBoxVectors(asNumpy=True)
+            final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)
+            n_frames_ran += n_frames_per_replicate
+            
 
 # Save final pos
 traj = md.load_pdb(centroid_A_pdb)
