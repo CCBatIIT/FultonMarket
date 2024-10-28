@@ -117,7 +117,8 @@ DCDR_params = dict(file=dcd_fn, reportInterval=n_steps_per_frame, enforcePeriodi
 final_pos = np.empty((len(spring_centers), init_positions.shape[0], 3))
 final_box_vec = np.empty((len(spring_centers), 3, 3))
 
-while n_frames_ran < n_frames_per_replicate * num_replicates:
+nan_counter = 0
+while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter < 5:
     for i, spring_center in enumerate(spring_centers):
 
         # If the dcd has these frames, just load
@@ -185,6 +186,7 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
                 final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)), axis=0)
                 final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)), axis=0)
                 num_replicates += 1
+                nan_counter += 1
 
                 break 
                 
@@ -196,7 +198,12 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
             box_vec = last_state.getPeriodicBoxVectors(asNumpy=True)
             final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)._value
             n_frames_ran += n_frames_per_replicate
+            nan_counter = 0
             
+
+# Catch error
+if nan_counter >= 5:
+    raise Error('nan_counter')
 
 # Save final pos
 traj = md.load_pdb(centroid_A_pdb)
