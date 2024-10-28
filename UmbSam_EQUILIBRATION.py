@@ -118,7 +118,8 @@ final_pos = np.empty((len(spring_centers), init_positions.shape[0], 3))
 final_box_vec = np.empty((len(spring_centers), 3, 3))
 
 nan_counter = 0
-while nan_counter < 5:
+done = False
+while not done and nan_counter < 5:
     for i, spring_center in enumerate(spring_centers):
 
         # If the dcd has these frames, just load
@@ -203,8 +204,8 @@ while nan_counter < 5:
 
 
         # End
-        if i+1 = num_replicates:
-            break
+        if i+1 == num_replicates:
+            done = True
 
 # Catch error
 if nan_counter >= 5:
