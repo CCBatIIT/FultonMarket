@@ -141,7 +141,7 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
         
             # First simulation checks, set positions and start reporters differently
             if 'last_state' in locals():  
-                init_positions = last_state.getPositions()
+                init_positions = last_state.getPositions(asNumpy=True)
                 simulation.context.setPositions(init_positions)
                 simulation.context.setVelocities(last_state.getVelocities())
                 append = True
@@ -172,12 +172,12 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
             # Run that bish ---> PAUSE -DC
             start = datetime.now()
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-            simulation.minimizeEnergy() 
+            # simulation.minimizeEnergy() WAS NOT COMMENTED
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished', flush=True)
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Taking', n_steps_per_frame * n_frames_per_replicate, 'steps', flush=True)
             
             # Try to take steps, if not interpolate and start for loop again
-            try:
+            try:                
                 simulation.step(n_steps_per_frame * n_frames_per_replicate)
                 
             except:
@@ -185,9 +185,10 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
                 spring_centers = np.insert(spring_centers, i, new_spring_centers, axis=0)
                 final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)), axis=0)
                 final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)), axis=0)
+                traj = md.load(dcd_fn, top=centroid_A_pdb)
                 num_replicates += 1
                 nan_counter += 1
-
+                
                 break 
                 
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Time to simulate replicate', i, 'for', n_frames_per_replicate * time_btw_frames, 'took', datetime.now() - start, flush=True)
@@ -203,7 +204,7 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
 
 # Catch error
 if nan_counter >= 5:
-    raise Error('nan_counter')
+    raise Exception('nan_counter')
 
 # Save final pos
 traj = md.load_pdb(centroid_A_pdb)
