@@ -179,7 +179,7 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
             try:
                 simulation.step(n_steps_per_frame * n_frames_per_replicate)
                 
-            except ValueError:
+            except:
                 new_spring_centers = np.mean((spring_centers[i], spring_centers[i-1]), axis=0)
                 spring_centers = np.insert(spring_centers, i, new_spring_centers, axis=0)
                 final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)), axis=0)
