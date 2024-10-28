@@ -121,7 +121,7 @@ final_box_vec = np.empty((len(spring_centers), 3, 3))
 
 nan_counter = 0
 done = False
-while not done and nan_counter < 5:
+while not done and nan_counter < 3:
     for i, spring_center in enumerate(spring_centers):
 
         print(rmsd(spring_center, init_positions._value))
@@ -186,12 +186,11 @@ while not done and nan_counter < 5:
             try:                
                 simulation.step(n_steps_per_frame * n_frames_per_replicate)
                 
-            except:
+            except:          
                 new_spring_centers = np.mean((spring_centers[i], spring_centers[i-1]), axis=0)
                 spring_centers = np.insert(spring_centers, i, new_spring_centers, axis=0)
                 final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)), axis=0)
                 final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)), axis=0)
-                traj = md.load(dcd_fn, top=centroid_A_pdb)
                 num_replicates += 1
                 nan_counter += 1
                 
@@ -213,7 +212,7 @@ while not done and nan_counter < 5:
             done = True
 
 # Catch error
-if nan_counter >= 5:
+if nan_counter >= 3:
     raise Exception('nan_counter')
 
 # Save final pos
