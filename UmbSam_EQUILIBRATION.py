@@ -124,7 +124,7 @@ done = False
 while not done and nan_counter < 5:
     for i, spring_center in enumerate(spring_centers):
 
-        print(rmsd(spring_center, init_positions))
+        print(rmsd(spring_center, init_positions._value))
 
         # If the dcd has these frames, just load
         if n_frames_ran > i * n_frames_per_replicate:
