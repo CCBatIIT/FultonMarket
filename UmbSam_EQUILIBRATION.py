@@ -102,6 +102,10 @@ print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found total no. of 
 
 
 # Input positions
+if 'traj' in locals():
+    traj[-1].save_pdb('temp.pdb')
+    pdb = PDBFile('temp.pdb')
+    os.remove('temp.pdb')
 init_positions = pdb.getPositions(asNumpy=True)
 
 
