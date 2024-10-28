@@ -178,10 +178,12 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
             # Try to take steps, if not interpolate and start for loop again
             try:
                 simulation.step(n_steps_per_frame * n_frames_per_replicate)
+                
             except ValueError:
-                spring_centers = np.insert(spring_centers, i, np.mean(spring_center, spring_centers[i-1]))
-                final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)))
-                final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)))
+                new_spring_centers = np.mean((spring_centers[i], spring_centers[i-1]), axis=0)
+                spring_centers = np.insert(spring_centers, i, new_spring_centers, axis=0)
+                final_pos = np.insert(final_pos, i, np.empty((init_positions.shape[0], 3)), axis=0)
+                final_box_vec = np.insert(final_box_vec, i, np.empty((3, 3)), axis=0)
                 num_replicates += 1
 
                 break 
