@@ -200,7 +200,8 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
             final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)._value
             n_frames_ran += n_frames_per_replicate
             nan_counter = 0
-            
+
+        print(n_frames_ran)
 
 # Catch error
 if nan_counter >= 5:
