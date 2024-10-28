@@ -172,7 +172,7 @@ while (n_frames_ran < n_frames_per_replicate * num_replicates) and nan_counter <
             # Run that bish ---> PAUSE -DC
             start = datetime.now()
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-            # simulation.minimizeEnergy() WAS NOT COMMENTED
+            simulation.minimizeEnergy() 
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished', flush=True)
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Taking', n_steps_per_frame * n_frames_per_replicate, 'steps', flush=True)
             
