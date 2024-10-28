@@ -89,7 +89,7 @@ print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Build spring center
 # Simulation length parameters
 ts = 2*unit.femtosecond
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found timestep of:', ts, flush=True)
-n_frames_per_replicate = 2500 
+n_frames_per_replicate = 2500
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found no. of frames per replicate:', n_frames_per_replicate, flush=True)
 time_btw_frames = 1*unit.picosecond 
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found time between frames:', time_btw_frames, flush=True)
@@ -164,7 +164,6 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
             
             # Init and append reporters
             SDR = StateDataReporter(**SDR_params)
-            print(DCDR_params)
             DCDR = DCDReporter(**DCDR_params)
             simulation.reporters.append(SDR)
             simulation.reporters.append(DCDR)
@@ -191,9 +190,9 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
         
             # After the run, we need the state to set the next positions
             last_state = simulation.context.getState(getPositions=True, getVelocities=True)
-            final_pos[i] = last_state.getPositions(asNumpy=True)
+            final_pos[i] = last_state.getPositions(asNumpy=True)._value
             box_vec = last_state.getPeriodicBoxVectors(asNumpy=True)
-            final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)
+            final_box_vec[i] = last_state.getPeriodicBoxVectors(asNumpy=True)._value
             n_frames_ran += n_frames_per_replicate
             
 
@@ -201,6 +200,9 @@ while n_frames_ran < n_frames_per_replicate * num_replicates:
 traj = md.load_pdb(centroid_A_pdb)
 traj.xyz = copy.deepcopy(final_pos)
 traj.unitcell_vectors = copy.deepcopy(final_box_vec)
+traj.save_dcd(final_pos_fn)
+traj = md.load(final_pos_fn, top=centroid_A_pdb)
+traj.image_molecules()
 traj.save_dcd(final_pos_fn)
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Saved final positions to', final_pos_fn, flush=True)
 
