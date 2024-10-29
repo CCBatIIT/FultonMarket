@@ -91,7 +91,7 @@ print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Build spring center
 # Simulation length parameters
 ts = 2*unit.femtosecond
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found timestep of:', ts, flush=True)
-n_frames_per_replicate = 2500
+n_frames_per_replicate = 10 #Was  2500
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found no. of frames per replicate:', n_frames_per_replicate, flush=True)
 time_btw_frames = 1*unit.picosecond 
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found time between frames:', time_btw_frames, flush=True)
@@ -124,8 +124,6 @@ done = False
 while not done and nan_counter < 3:
     for i, spring_center in enumerate(spring_centers):
 
-        print(rmsd(spring_center, init_positions._value))
-
         # If the dcd has these frames, just load
         if n_frames_ran > i * n_frames_per_replicate:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Loading output for replicate', str(i) + '...', flush=True)
@@ -147,7 +145,8 @@ while not done and nan_counter < 3:
             # First simulation checks, set positions and start reporters differently
             if 'last_state' in locals():  
                 init_positions = last_state.getPositions(asNumpy=True)
-                simulation.context.setPositions(init_positions)
+                simulation.context.setPositions(last_state.getPositions())
+                simulation.context.setPeriodicBoxVectors(*last_state.getPeriodicBoxVectors())
                 simulation.context.setVelocities(last_state.getVelocities())
                 append = True
                 
@@ -161,6 +160,8 @@ while not done and nan_counter < 3:
                     pdb = PDBFile(temp_pdb)
                     os.remove(temp_pdb)
                     init_positions = pdb.getPositions(asNumpy=True)
+                    init_box_vec = [Vec3(*vector) for vector in traj.unitcell_vectors[-1]]
+                    simulation.context.setPeriodicBoxVectors(*init_box_vec)
                     append = True
                     
                 simulation.context.setPositions(init_positions)
