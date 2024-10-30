@@ -169,7 +169,6 @@ class FultonMarketAnalysis():
         plt.show()
         
         return fig, ax
-    zz
     
     
     def write_resampled_traj(self, pdb_out: str, dcd_out: str, return_traj: bool=False):
