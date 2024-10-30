@@ -4,6 +4,7 @@ from openmmtools.multistate import MultiStateReporter
 import mdtraj as md
 import openmm
 import openmm.unit as unit
+import math
 
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
@@ -155,6 +156,8 @@ def restrain_atoms_by_dsl(thermodynamic_state, topology, atoms_dsl, spring_const
         a_stupid_copied_system = thermodynamic_state.system
         a_stupid_copied_system.addForce(restraint_force)
         thermodynamic_state.system = a_stupid_copied_system
+
+
 
 def restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_constant, spring_center):
         """

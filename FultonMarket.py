@@ -5,7 +5,7 @@ from openmmtools.states import SamplerState
 from openmmtools.multistate import ParallelTemperingSampler, MultiStateReporter
 from openmmtools.utils.utils import TrackedQuantity
 import tempfile
-import os, sys
+import os, sys, math
 sys.path.append('../MotorRow')
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
@@ -80,6 +80,7 @@ class FultonMarket():
             output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/'),
             restrained_atoms_dsl:str=None,
             spring_centers2_pdb:str=None,
+            init_positions_dcd:str=None,
             K=83.68):
         """
         Run parallel tempering replica exchange.
@@ -125,6 +126,7 @@ class FultonMarket():
         # Store variables
         self.total_sim_time = total_sim_time
         self.restrained_atoms_dsl = restrained_atoms_dsl
+        self.init_positions_dcd = init_positions_dcd
         self.temperatures = [temp*unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
         
         if restrained_atoms_dsl is not None: #Leave the top 20% of states unrestrained
@@ -138,6 +140,16 @@ class FultonMarket():
             # Unpack .pdb
             self.spring_centers = make_interpolated_positions_array(self.input_pdb, spring_centers2_pdb, n_replicates) #All atoms, not just protein
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Second Spring Centers and Made the Shifting Center Schedule', flush=True)
+
+
+            # Get the inital positions and box vectors
+            if self.init_positions_dcd is not None:
+                assert os.path.exists(self.init_positions_dcd), self.init_positions_dcd
+                init_traj = md.load(self.init_positions_dcd, top=self.input_pdb)
+                n_replicates = init_traj.n_frames
+                self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.xyz, mask=False, fill_value=1e+20), unit=unit.nanometer))
+                self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
+            
             
             # Additionally, in this Umbrella Sampling mode - the temps should all be the max
             self.temperatures = [T_max * unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
@@ -203,6 +215,10 @@ class FultonMarket():
                 params['restrained_atoms_dsl'] = self.restrained_atoms_dsl
                 params['mdtraj_topology'] = md.Topology.from_openmm(self.pdb.topology)
                 params['spring_centers'] = self.spring_centers
+
+                if self.init_box_vectors is not None and self.init_positions is not None:
+                    params['init_positions'] = self.init_positions
+                    params['init_box_vectors'] = self.init_box_vectors
             
             simulation = Randolph(**params)
             

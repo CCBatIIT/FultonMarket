@@ -29,7 +29,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, resids: List[int]=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=0, resids: List[int]=None, max_save_dir: int=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -42,6 +42,9 @@ class FultonMarketAnalysis():
         assert os.path.isdir(self.stor_dir)
         fprint(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
+        if max_save_dir is not None:
+            max_save_dir = os.path.join(self.stor_dir, str(max_save_dir))
+            self.storage_dirs = self.storage_dirs[:self.storage_dirs.index(max_save_dir)+1]
         self.pdb = pdb
         self.top = md.load_pdb(self.pdb).topology
         if resids is not None:
@@ -166,7 +169,7 @@ class FultonMarketAnalysis():
         plt.show()
         
         return fig, ax
-    
+    zz
     
     
     def write_resampled_traj(self, pdb_out: str, dcd_out: str, return_traj: bool=False):

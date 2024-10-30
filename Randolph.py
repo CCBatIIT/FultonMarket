@@ -1,5 +1,7 @@
 from openmm import *
 from openmm.app import *
+from openmmtools import cache
+from openmmtools.utils import get_fastest_platform
 from openmmtools.utils.utils import TrackedQuantity
 from openmmtools import states, mcmc, multistate
 from openmmtools.states import SamplerState, ThermodynamicState
@@ -14,7 +16,8 @@ from typing import List
 from datetime import datetime
 import mdtraj as md
 from copy import deepcopy
-from FultonMarketUtils import *
+from FultonMarketUtils import restrain_atoms_by_dsl
+
 
 
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
@@ -77,8 +80,8 @@ class Randolph():
     
     def main(self, init_overlap_thresh: float, term_overlap_thresh: float):
         """
-        Was previously _simulation()
         """
+        
         # Assign attributes
         self.init_overlap_thresh = init_overlap_thresh
         self.term_overlap_thresh = term_overlap_thresh
@@ -87,10 +90,10 @@ class Randolph():
         self.current_cycle = 0
         while self.current_cycle <= self.n_cycles:
 
-            # Minimize TODO: Reinsert
+            # Minimize 
             if self.sim_no == 0 and self.current_cycle == 0:
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-                self.simulation.minimize()
+                self.simulation.minimize() 
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished.', flush=True)
 
             # Advance 1 cycle
@@ -140,7 +143,8 @@ class Randolph():
         else:
             return [t*unit.kelvin for t in temperatures]
         
-        
+
+    
     def _configure_simulation_parameters(self):
         """
         Configure simulation times to meet aggregate simulation time. 
@@ -177,7 +181,9 @@ class Randolph():
                                           'replicates to be', [np.round(t._value,1) for t in self.spring_constants], flush=True)
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated spring_centers of', self.n_replicates,
                                           'replicates to be', [self.spring_centers[i].shape for i in range(self.spring_centers.shape[0])], flush=True)
-        
+
+
+    
     def _build_simulation(self):
         """
         """
@@ -204,14 +210,18 @@ class Randolph():
         if self.init_velocities is not None:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions with the "Velocity" method', flush=True)
             self.sampler_states = [SamplerState(positions=self.init_positions[i], box_vectors=self.init_box_vectors[i], velocities=self.init_velocities[i]) for i in range(self.n_replicates)]
+            
         elif self.context is not None:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions with the "Context" method', flush=True)
             self.sampler_states = SamplerState(positions=self.init_positions, box_vectors=self.init_box_vectors).from_context(self.context)
+            
         else:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions with the "No Context" method', flush=True)
-            if self.sim_no > 0:
+            
+            if self.sim_no > 0 or len(np.array(self.init_box_vectors).shape) == 3:
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions individual to each state', flush=True)
                 self.sampler_states = [SamplerState(positions=self.init_positions[i], box_vectors=self.init_box_vectors[i]) for i in range(self.n_replicates)]
+                
             else:
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions the same to each state', flush=True)
                 self.sampler_states = SamplerState(positions=self.init_positions, box_vectors=self.init_box_vectors)
@@ -226,12 +236,13 @@ class Randolph():
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + f'Assigning {len(self.spring_constants)} Restraints', flush=True)
             assert len(self.temperatures) == len(self.spring_constants)
             #In this case, iterate over the n_replicate spring_centers and assign different ones to each thermo_state
-            for thermo_state, spring_cons, spring_center in zip(thermodynamic_states, self.spring_constants, self.spring_centers):
-                self._restrain_atoms_by_dsl(thermo_state, self.mdtraj_topology, self.restrained_atoms_dsl, spring_cons, spring_center)
+            for i, (thermo_state, spring_cons, spring_center) in enumerate(zip(thermodynamic_states, self.spring_constants, self.spring_centers)):
+                restrain_atoms_by_dsl(thermo_state, self.mdtraj_topology, self.restrained_atoms_dsl, spring_cons, spring_center)
             
             self.simulation.create(thermodynamic_states=thermodynamic_states, sampler_states=self.sampler_states, storage=self.reporter)
         
-        
+
+    
     def _run_cycle(self):
         """
         Run one cycle
@@ -323,7 +334,7 @@ class Randolph():
         self.n_replicates = len(self.temperatures)
 
         # Only interpolate inital positions and box_vectors if not first simulation
-        if self.sim_no > 0:
+        if self.sim_no > 0 or self.restrained_atoms_dsl is not None:
             
             # Add pos, box_vecs, velos for new temperatures
             self.init_positions = np.insert(self.init_positions, insert_inds, [self.init_positions[ind-1] for ind in insert_inds], axis=0)

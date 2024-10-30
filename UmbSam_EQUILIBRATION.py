@@ -91,7 +91,7 @@ print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Build spring center
 # Simulation length parameters
 ts = 2*unit.femtosecond
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found timestep of:', ts, flush=True)
-n_frames_per_replicate = 10 #Was  2500
+n_frames_per_replicate = 2500
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found no. of frames per replicate:', n_frames_per_replicate, flush=True)
 time_btw_frames = 1*unit.picosecond 
 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found time between frames:', time_btw_frames, flush=True)
