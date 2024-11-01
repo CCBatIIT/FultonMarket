@@ -29,7 +29,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, resids: List[int]=None, max_save_dir: int=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=0, resids: List[int]=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -42,9 +42,6 @@ class FultonMarketAnalysis():
         assert os.path.isdir(self.stor_dir)
         fprint(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
-        if max_save_dir is not None:
-            max_save_dir = os.path.join(self.stor_dir, str(max_save_dir))
-            self.storage_dirs = self.storage_dirs[:self.storage_dirs.index(max_save_dir)+1]
         self.pdb = pdb
         self.top = md.load_pdb(self.pdb).topology
         if resids is not None:
@@ -58,7 +55,10 @@ class FultonMarketAnalysis():
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        
+        if os.path.exists(all([os.path.join(storage_dir, 'spring_centers.npy') for storage_dir in self.storage_dirs])):
+            self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
+            self.spring_centers = self.spring_centers_list[-1]
+            
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
         self.reduced_potentials = [e / get_kT(temps) for (e, temps) in zip(self.energies, self.temperatures_list)]
@@ -113,11 +113,18 @@ class FultonMarketAnalysis():
             return self.average_energies[self.t0:]
         
         
-    def plot_energy_distributions(self, figsize: tuple=(8,4)):   
+    def plot_energy_distributions(self, figsize: tuple=(8,4), post_equil: bool=False):  
+
+        if post_equil:
+            if not hasattr(self, 't0'):
+                self._determine_equilibration()
+            state_energies = np.array([self.get_state_energies(state_indice=state_no)[self.t0:] for state_no in range(self.energies.shape[1])]).T
+        else:
+            state_energies = np.array([self.get_state_energies(state_indice=state_no) for state_no in range(self.energies.shape[1])]).T
+
         
         fig, ax = plt.subplots(figsize=figsize)
         
-        state_energies = np.array([self.get_state_energies(state_indice=state_no) for state_no in range(self.energies.shape[1])]).T
         
         sns.kdeplot(state_energies, ax=ax, legend=False)
         ax.set_xlabel('Energy (kJ/mol)')
@@ -169,6 +176,7 @@ class FultonMarketAnalysis():
         plt.show()
         
         return fig, ax
+    
     
     
     def write_resampled_traj(self, pdb_out: str, dcd_out: str, return_traj: bool=False):
@@ -317,17 +325,24 @@ class FultonMarketAnalysis():
         """
         determine the indices (with respect to the last simulation) which are missing from other simulations
         """
-        
+        # Set interpolation attribute
+        if hasattr(self, 'spring_centers_list'):
+            interpolation_list = [centers[:,0] for centers in self.spring_centers_list]
+            final_set = self.spring_centers[:,0]
+        else:
+            interpolation_list = self.temperatures_list
+            final_set = self.temperatures
+            
         # Iterate through temperatures
         self.interpolation_inds = []
-        for i, sim_temps in enumerate(self.temperatures_list):
+        for i, set_i in enumerate(interpolation_list):
             missing_sim_inds = []
-            for i, temp in enumerate(self.temperatures):
-                if temp not in sim_temps:
+            for i, s in enumerate(final_set):
+                if s not in set_i:
                     missing_sim_inds.append(i)
         
             # Assert that interpolation made sense
-            assert len(missing_sim_inds) + len(sim_temps) == len(self.temperatures)
+            assert len(missing_sim_inds) + len(set_i) == len(final_set), f'{len(missing_sim_inds)}, {len(set_i)}, {len(final_set)}'
             self.interpolation_inds.append(missing_sim_inds)
 
 
@@ -516,7 +531,7 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
 
 
     # Resample
-    resampled_inds = np.random.choice(range(len(probs)), size=size, replace=False, p=probs)
+    resampled_inds = np.random.choice(range(len(probs)), size=size, replace=True, p=probs)
     resampled_objs = []
     for obj in objs:
         resampled_objs.append(np.array([obj[resampled_ind] for resampled_ind in resampled_inds]))
