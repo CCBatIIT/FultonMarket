@@ -220,6 +220,8 @@ class Randolph():
             
             if self.sim_no > 0 or len(np.array(self.init_box_vectors).shape) == 3:
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions individual to each state', flush=True)
+                # print('!!!', np.array(self.init_positions).shape)
+                # print('!!!', np.array(self.init_box_vectors).shape, self.init_box_vectors)
                 self.sampler_states = [SamplerState(positions=self.init_positions[i], box_vectors=self.init_box_vectors[i]) for i in range(self.n_replicates)]
         
             
@@ -329,19 +331,16 @@ class Randolph():
             assert self.spring_centers.shape[0] == len(self.temperatures)
         
         self.n_replicates = len(self.temperatures)
+        
+        # Add pos, box_vecs, velos for new temperatures
+        self.init_positions = np.insert(self.init_positions, insert_inds, [self.init_positions[ind-1] for ind in insert_inds], axis=0)
+        self.init_box_vectors = np.insert(self.init_box_vectors, insert_inds, [self.init_box_vectors[ind-1] for ind in insert_inds], axis=0)
+        if self.init_velocities is not None:
+            self.init_velocities = np.insert(self.init_velocities, insert_inds, [self.init_velocities[ind-1] for ind in insert_inds], axis=0)
 
-        # Only interpolate inital positions and box_vectors if not first simulation
-        if self.sim_no > 0 or self.restrained_atoms_dsl is not None:
-            
-            # Add pos, box_vecs, velos for new temperatures
-            self.init_positions = np.insert(self.init_positions, insert_inds, [self.init_positions[ind-1] for ind in insert_inds], axis=0)
-            self.init_box_vectors = np.insert(self.init_box_vectors, insert_inds, [self.init_box_vectors[ind-1] for ind in insert_inds], axis=0)
-            if self.init_velocities is not None:
-                self.init_velocities = np.insert(self.init_velocities, insert_inds, [self.init_velocities[ind-1] for ind in insert_inds], axis=0)
-
-            # Convert to quantities    
-            self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
-            self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_box_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
-            if self.init_velocities is not None:
-                self.init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
+        # Convert to quantities    
+        # self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
+        # self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=np.array(self.init_box_vectors).reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
+        # if self.init_velocities is not None:
+        #     self.init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
 
