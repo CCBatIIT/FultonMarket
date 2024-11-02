@@ -16,7 +16,7 @@ from typing import List
 from datetime import datetime
 import mdtraj as md
 from copy import deepcopy
-from FultonMarketUtils import restrain_atoms_by_dsl
+from FultonMarketUtils import *
 
 
 
@@ -180,8 +180,7 @@ class Randolph():
         if self.restrained_atoms_dsl is not None:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated spring_constants of', self.n_replicates,
                                           'replicates to be', [np.round(t._value,1) for t in self.spring_constants], flush=True)
-            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated spring_centers of', self.n_replicates,
-                                          'replicates to be', [self.spring_centers[i].shape for i in range(self.spring_centers.shape[0])], flush=True)
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated spring_centers of', np.round([rmsd(self.spring_centers[i], self.spring_centers[0]) for i in range(self.n_replicates)], 2), 'nm', flush=True)
 
 
     
@@ -222,10 +221,7 @@ class Randolph():
             if self.sim_no > 0 or len(np.array(self.init_box_vectors).shape) == 3:
                 print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions individual to each state', flush=True)
                 self.sampler_states = [SamplerState(positions=self.init_positions[i], box_vectors=self.init_box_vectors[i]) for i in range(self.n_replicates)]
-                
-            else:
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Setting initial positions the same to each state', flush=True)
-                self.sampler_states = SamplerState(positions=self.init_positions, box_vectors=self.init_box_vectors)
+        
             
         if self.restrained_atoms_dsl is None:
             self.simulation.create(thermodynamic_state=self.ref_state, sampler_states=self.sampler_states,
@@ -310,7 +306,7 @@ class Randolph():
         self.temperatures = [temp*unit.kelvin for temp in new_temps]
 
         # Add new restraints if in PTwRE
-        if self.restrained_atoms_dsl is not None:
+        if self.restrained_atoms_dsl is not None :
             prev_spring_cons = [s._value for s in self.spring_constants]
             new_spring_cons = [cons for cons in prev_spring_cons]
             for displacement, ind in enumerate(insert_inds):

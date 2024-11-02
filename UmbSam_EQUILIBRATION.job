@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="PTwR"
-#SBATCH --output="/expanse/lustre/projects/iit122/dcooper/CB2/logs/PTwR.%j.%N.out"
+#SBATCH --job-name="UmbSam"
+#SBATCH --output="UmbSam.%j.%N.out"
 #SBATCH --partition=gpu-shared
 #SBATCH --gpus=1
 #SBATCH --nodes=1
@@ -17,5 +17,5 @@ conda activate replica
 
 cd $SLURM_SUBMIT_DIR
 
-echo REPLICA EXCHANGE BATCH JOB FOR $2 $4
-python PTwR_REPLICA_EXCHANGE.py $1 $2 $3 $4 $5 $6
+echo EQUIL JOB for $2 $3
+python UmbSam_EQUILIBRATION.py $1 $2 $3 $4 

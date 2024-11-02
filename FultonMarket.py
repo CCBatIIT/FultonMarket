@@ -128,6 +128,11 @@ class FultonMarket():
         self.restrained_atoms_dsl = restrained_atoms_dsl
         self.init_positions_dcd = init_positions_dcd
         self.temperatures = [temp*unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
+
+        # Default initial positions and box vectors
+        self.init_positions = [self.init_positions for i in range(n_replicates)]
+        self.init_box_vectors = [self.init_box_vectors for i in range(n_replicates)]
+        
         
         if restrained_atoms_dsl is not None: #Leave the top 20% of states unrestrained
             self.spring_constants = [K * spring_constant_unit for i in range(n_replicates)]
@@ -155,7 +160,7 @@ class FultonMarket():
             self.temperatures = [T_max * unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
             
         elif self.spring_constants is not None:
-            self.spring_centers = np.array([self.init_positions for i in range(n_replicates)])
+            self.spring_centers = self.init_positions.copy()
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Restraining All States to the Initial Positions', flush=True)
         else:
             self.spring_centers = None
@@ -177,7 +182,7 @@ class FultonMarket():
         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Temperature Schedule', [np.round(T._value, 1) for T in self.temperatures], 'Kelvin', flush=True)
         if self.restrained_atoms_dsl is not None:
             print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Restraint Schedule', [np.round(T._value, 1) for T in self.spring_constants], spring_constant_unit, flush=True)
-            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Spring Center Schedule', np.round(rmsd(self.spring_centers[:], self.spring_centers[0]), 2), 'nm', flush=True)
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Spring Center Schedule', np.round([rmsd(self.spring_centers[i], self.spring_centers[0]) for i in range(n_replicates)], 2), 'nm', flush=True)
             
 
         # Loop through short 50 ns simulations to allow for .ncdf truncation
