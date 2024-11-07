@@ -18,9 +18,6 @@ import mdtraj as md
 from copy import deepcopy
 from FultonMarketUtils import *
 
-
-
-
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
 
 class Randolph():
