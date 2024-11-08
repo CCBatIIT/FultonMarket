@@ -335,9 +335,11 @@ class Randolph():
         if self.init_velocities is not None:
             self.init_velocities = np.insert(self.init_velocities, insert_inds, [self.init_velocities[ind-1] for ind in insert_inds], axis=0)
 
+
         # Convert to quantities    
-        # self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
-        # self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=np.array(self.init_box_vectors).reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
-        # if self.init_velocities is not None:
-        #     self.init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
+        if self.sim_no > 0:
+            self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
+            self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=np.array(self.init_box_vectors).reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
+            if self.init_velocities is not None:
+                self.init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=self.init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
 

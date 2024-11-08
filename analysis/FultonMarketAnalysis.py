@@ -29,7 +29,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, resids: List[int]=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -68,6 +68,7 @@ class FultonMarketAnalysis():
         self.skip = skip        
 
         # Determine if interpolation occured and resample to fill in missing states
+        self.scheduling = scheduling
         self._backfill()
         fprint(f'Shape of final energies determined to be: {self.energies.shape}')
 
@@ -326,7 +327,7 @@ class FultonMarketAnalysis():
         determine the indices (with respect to the last simulation) which are missing from other simulations
         """
         # Set interpolation attribute
-        if hasattr(self, 'spring_centers_list'):
+        if self.scheduling == 'Spring Centers' and hasattr(self, 'spring_centers_list'):
             interpolation_list = [centers[:,0] for centers in self.spring_centers_list]
             final_set = self.spring_centers[:,0]
         else:

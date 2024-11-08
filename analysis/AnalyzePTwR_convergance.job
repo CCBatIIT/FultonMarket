@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name="ANALYZE"
+#SBATCH --output="/expanse/lustre/projects/iit122/dcooper/CB2/logs/ANALYZE.%j.%N.out"
+#SBATCH --partition=shared
+#SBATCH --nodes=1
+#SBATCH --ntasks=13
+#SBATCH --mem=25G
+#SBATCH --account=iit122
+#SBATCH -t 8:00:00
+
+source ~/.bashrc
+
+conda activate eff2
+
+cd $SLURM_SUBMIT_DIR
+
+echo dG convergance job for $1
+python AnalyzePTwR_convergance.py $1
