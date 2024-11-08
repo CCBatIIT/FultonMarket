@@ -15,7 +15,6 @@ from openmm import *
 import numpy as np
 from openmm.app import *
 import openmm.unit as unit
-from FultonMarket import FultonMarket
 from FultonMarketUtils import *
 from datetime import datetime
 import mdtraj as md
@@ -105,7 +104,7 @@ class Umbrella_Trailblazer():
         for iden in ["A", "B"]:
             self.final_poss[iden] = np.empty((self.n_sims_per_centroid, self.sim_obs[iden][3].n_atoms, 3))
             self.final_box_vecs[iden] = np.empty((self.n_sims_per_centroid, 3, 3))
-        printf(f"Shape of final positions and box_vectors: \n A: {self.final_poss["A"].shape} {self.final_box_vecs["A"].shape} \n B: {self.final_poss["B"].shape} {self.final_box_vecs["B"].shape} ")
+        printf(f"Shape of final positions and box_vectors: \n A: {self.final_poss['A'].shape} {self.final_box_vecs['A'].shape} \n B: {self.final_poss['B'].shape} {self.final_box_vecs['B'].shape} ")
         
     
     def assign_selection_string(self, intracellular_inds:dict):
@@ -223,14 +222,14 @@ class Umbrella_Trailblazer():
 
             # If the dcd has these frames, just load
             if self.n_frames_ran[leg_iden] > i * n_frames_per_replicate:
-                printf(f'Loading output for replicate {str(i) + '...'}')
+                printf(f'Loading output for replicate {str(i)} ...')
                 traj = md.load(self.dcd_fns[leg_iden], top=self.sim_obs[leg_iden][3])
                 self.final_poss[leg_iden][i] = traj.xyz[i*n_frames_per_replicate]
                 self.final_box_vecs[leg_iden][i] = traj.unitcell_vectors[i*n_frames_per_replicate]
                 del traj
 
             else:            
-                printf(f'Beginning simulation for replicate {str(i) + '...'}')
+                printf(f'Beginning simulation for replicate {str(i)}...')
 
                 # Deep copy the init system, without the restraints or barostat, then add them
                 system = copy.deepcopy(self.sim_obs[leg_iden][1])
@@ -298,7 +297,7 @@ class Umbrella_Trailblazer():
                 
 
 if __name__ == '__main__':
-    assert len(sys.argv) == 5, "You may have the wrond number of arguments :("
+    assert len(sys.argv) == 5, "You may have the wrong number of arguments :("
     args = dict(input_dir = sys.argv[1],
                 centroid_A_name = sys.argv[2],
                 centroid_B_name = sys.argv[3],
@@ -320,6 +319,6 @@ if __name__ == '__main__':
     UT.assign_spring_attributes(intracellular_inds=intra_inds_dict)
     
     for leg_iden in ["A", "B"]:
-        UT.run_leg(leg_iden, n_frames_per_replicate=100)
+        UT.run_leg(leg_iden)
         
     UT.save_results()
