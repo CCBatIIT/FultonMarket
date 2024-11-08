@@ -59,5 +59,5 @@ spring_center2_pdb = os.path.join(input_dir, sys.argv[7] + '.pdb')
 market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=None)
 
 # RUN
-market.run(total_sim_time=total_sim_time, iteration_length=0.001, n_replicates=n_replica, sim_length=sub_sim_length,
+market.run(total_sim_time=total_sim_time, iteration_length=0.01, n_replicates=n_replica, sim_length=sub_sim_length,
 	   output_dir=output_dir, restrained_atoms_dsl=selection_string, spring_centers2_pdb=spring_center2_pdb, init_positions_dcd=sys.argv[8])

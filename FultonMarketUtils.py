@@ -5,10 +5,15 @@ import mdtraj as md
 import openmm
 import openmm.unit as unit
 import math
+from datetime import datetime
 
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
+
 spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
+
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
+
+printf = lambda x: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + x, flush=True)
 
 def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
     print(f'Truncating {ncdf_in} to {ncdf_out}')
@@ -79,7 +84,8 @@ def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
 
         return pos, velocities, box_vecs, states, energies, temps
         
-
+        
+        
 def make_interpolated_positions_array(spring_centers1_pdb, spring_centers2_pdb, num_replicates):
     """
     Create a positions array linearly interpolating from spring_centers1_pdb to spring_centers2_pdb
@@ -159,7 +165,7 @@ def restrain_atoms_by_dsl(thermodynamic_state, topology, atoms_dsl, spring_const
 
 
 
-def restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_constant, spring_center):
+def restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_constant, spring_center, preselected_centers=True):
         """
         Unceremoniously Ripped from the OpenMMTools github, simply to change sigma to K
         Apply a soft harmonic restraint to the given atoms.
@@ -188,6 +194,14 @@ def restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_con
         if len(restrained_atom_indices) == 0:
             raise Exception('No Atoms To Restrain!')
         
+        #If the spring centers have already been selected against the selection string
+        # then the 'map' is restrained_atom_indices to range(len(restrained_atom_indices))
+        if preselected_centers:
+            spring_center_indices = np.arange(restrained_atom_indices.shape[0])
+        else:
+            spring_center_indices = restrained_atom_indices
+        
+        
         #Assign Spring Constant, ensuring it is the appropriate unit
         K = spring_constant  # Spring constant.
         if type(K) == unit.Quantity and K.unit == spring_constant_unit:
@@ -208,7 +222,9 @@ def restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_con
         restraint_force.addPerParticleParameter('x0')
         restraint_force.addPerParticleParameter('y0')
         restraint_force.addPerParticleParameter('z0')
-        for index in restrained_atom_indices:
-            parameters = spring_center[index,:]
-            restraint_force.addParticle(index, parameters)
+        
+        for atom_index, spring_index in zip(restrained_atom_indices, spring_center_indices):
+            parameters = spring_center[spring_index,:]
+            restraint_force.addParticle(atom_index, parameters)
         openmm_system.addForce(restraint_force)
+        
