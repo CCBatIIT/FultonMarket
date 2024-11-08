@@ -37,7 +37,7 @@ try:
 except:
     total_sim_time = 500
 
-sub_sim_length = 5
+sub_sim_length = 50
 
 try:
     n_replica = int(sys.argv[6])
@@ -45,7 +45,7 @@ except:
     n_replica = 90
 
 # Run rep exchange
-market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=None)
+market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=input_state)
 
 market.run(total_sim_time=total_sim_time, iteration_length=0.001, n_replicates=n_replica, sim_length=sub_sim_length, output_dir=output_dir)
 
