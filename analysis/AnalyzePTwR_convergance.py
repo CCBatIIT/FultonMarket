@@ -65,19 +65,9 @@ analyzer.equilibration_method = 'energy'
 
 
 # Compute free energy convergance
-xss = []
-yss = []
 y_stdss = []
 xs, ys, y_stds = free_energy_convergence(analyzer, size_domain=100)
-xss.append(xs)
-yss.append(ys)
-y_stdss.append(y_stds)
-plt.clf()
-_ = plt.errorbar(xs/10, ys, yerr=y_stds, ecolor='gray', capsize=2.5)
-plt.title(centroid)
-plt.ylabel('dG between endstates (kT)')
-plt.xlabel('Aggregate Simulation Time (ns)')
-plt.savefig(os.path.join(sim_dir, f'{centroid}_dG_convergance.png')) 
+np.save(os.path.join(sim_dir, centroid + '_0', 'convergance.npy'), np.array(xs, ys, y_stds))
 
 
 
