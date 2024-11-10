@@ -10,7 +10,8 @@ PARAMETERS:
     CENTROID_A/B_NAME: Name of centroid (e.g. centroid_1)
     OUTPUT_DIR: Absolute path to save output
 """
-
+import os, sys
+sys.path.append('FultonMarket')
 from openmm import *
 import numpy as np
 from openmm.app import *
@@ -18,7 +19,7 @@ import openmm.unit as unit
 from FultonMarketUtils import *
 from datetime import datetime
 import mdtraj as md
-import os, sys
+
 
 #83.68 Joule/(mol * ang^2) = 20 cal/(mol * ang^2)
 
@@ -35,7 +36,7 @@ class Umbrella_Trailblazer():
     """
     """
     def __init__(self, input_dir, centroid_A_name, centroid_B_name, save_dir,
-                 num_replicates=25, temp=367.447*unit.kelvin, pressure=1*unit.bar):
+                 num_replicates=5, temp=367.447*unit.kelvin, pressure=1*unit.bar): #REMOVE 5 -> 25
         """
         """
         # User inputs
@@ -176,7 +177,7 @@ class Umbrella_Trailblazer():
             printf(f'Saved final positions to {self.final_pos_fns[iden]}')
     
     
-    def run_leg(self, leg_iden, ts=2*unit.femtosecond, n_frames_per_replicate=2500, time_btw_frames=1*unit.picosecond):
+    def run_leg(self, leg_iden, ts=2*unit.femtosecond, n_frames_per_replicate=25, time_btw_frames=1*unit.picosecond): #REMOVE 25 -> 2500
         """
         leg iden must be in ["A", "B"]
         """

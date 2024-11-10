@@ -1,5 +1,5 @@
 """
-USAGE: python REPLICA_EXCHANGE.py $INPUT_DIR $NAME $OUTPUT_DIR $REPLICATE $SIM_TIME $NUM_OF_REPLICA $SECOND_SPRING_CENTER_PDB 
+USAGE: python REPLICA_EXCHANGE.py $PDB/XML_INPUT_DIR $DCD_INPUT_DIR $NAME1 $NAME2 $OUTPUT_DIR $SIM_TIME $NUM_OF_REPLICA  
 
 PARAMETERS:
 -----------
@@ -14,35 +14,40 @@ PARAMETERS:
 
 import os, sys, math
 sys.path.append('FultonMarket')
-from FultonMarket import FultonMarket
+from FultonMarketUS import FultonMarketUS
 
 # Inputs
 input_dir = sys.argv[1]
-name = sys.argv[2]
-input_sys = os.path.join(input_dir, name+'_sys.xml')
-input_state = os.path.join(input_dir, name+'_state.xml')
-input_pdb = os.path.join(input_dir, name+'.pdb')
+dcd_dir = sys.argv[2]
+name1 = sys.argv[3]
+name2 = sys.argv[4]
+input_sys = os.path.join(input_dir, name1+'_sys.xml')
+input_pdb = [os.path.join(input_dir, name1+'.pdb'), os.path.join(input_dir, name2+'.pdb')]
+input_dcd = [os.path.join(dcd_dir, 'final_pos_A.dcd'), os.path.join(dcd_dir, 'final_pos_B.dcd')]
 print(input_pdb)
+print(input_dcd)
 
 # Outputs
-rep = int(sys.argv[4])
-output_dir = os.path.join(sys.argv[3], name + '_' + str(rep))
+output_dir = os.path.join(sys.argv[5], name1 + '_' + name2)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 assert os.path.exists(output_dir)
 
 # Simulation parameters
 try:
-    total_sim_time = int(sys.argv[5])
+    total_sim_time = int(sys.argv[6])
 except:
     total_sim_time = 500
 
-sub_sim_length = 50
-
+response = input('Proceed w/ 10 ps sub sim length? y/n \n')
+if response == 'y':
+    sub_sim_length = 0.01
+else:
+    raise Exception(response)
 try:
-    n_replica = int(sys.argv[6])
+    n_replicates = int(sys.argv[7])
 except:
-    n_replica = 90
+    n_replicates = 90
 
 # Restraints
 selection_string = 'protein and ('
@@ -52,15 +57,11 @@ for ind in intracellular_inds:
     selection_string += f'(resid {ind}) or '
 selection_string = selection_string[:-4] + ')'
 
-# Second Spring Center
-input_pdb2 = os.path.join(input_dir, sys.argv[7] + '.pdb')
-
-
-
-
 # Run rep exchange
-market = FultonMarket(input_pdb=[input_pdb1, input_pdb2], input_system=input_sys, input_state=None)
+market = FultonMarketUS(input_pdb=input_pdb, input_system=input_sys, init_positions_dcd=input_dcd, n_replicates=n_replicates, restrained_atoms_dsl=selection_string)
 
 # RUN
-market.run(total_sim_time=total_sim_time, iteration_length=0.01, n_replicates=n_replica, sim_length=sub_sim_length,
-	   output_dir=output_dir, restrained_atoms_dsl=selection_string, spring_centers2_pdb=spring_center2_pdb, init_positions_dcd=sys.argv[8])
+response = input('Proceed w/ 0, 0.1 thresholds? y/n \n')
+if response != 'y':
+    raise Exception(response)
+market.run(total_sim_time=total_sim_time, iter_length=0.001, sim_length=sub_sim_length, output_dir=output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
