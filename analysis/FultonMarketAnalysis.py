@@ -420,6 +420,7 @@ class FultonMarketAnalysis():
         self.energies = np.concatenate(backfilled_energies, axis=0)
         self.reduced_potentials = np.concatenate(backfilled_potentials, axis=0)
         self.map = np.concatenate(backfilled_map, axis=0)
+        self.n_frames = self.energies.shape[0]
     
     
 
@@ -440,11 +441,10 @@ class FultonMarketAnalysis():
                 self.average_energies[:,state_no] = self.get_state_energies(state_indice=state_no)
             self.average_energies = self.average_energies.mean(axis=1)
 
-            t0, g, Neff_max = timeseries.detect_equilibration(self.average_energies) # compute indices of uncorrelated timeseries
-            A_t_equil = self.average_energies[t0:]
-            indices = timeseries.subsample_correlated_data(A_t_equil, g=g)
+            self.t0, self.g, Neff_max = timeseries.detect_equilibration(self.average_energies) # compute indices of uncorrelated timeseries
+            A_t_equil = self.average_energies[self.t0:]
+            indices = timeseries.subsample_correlated_data(A_t_equil, g=self.g)
             A_n = A_t_equil[indices]
-            self.t0 = t0
             self.uncorrelated_indices = indices
             
          
