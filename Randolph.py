@@ -18,32 +18,20 @@ import mdtraj as md
 from copy import deepcopy
 from FultonMarketUtils import *
 
-spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
 
 class Randolph():
     """
     """
     
-    def __init__(self, 
-                 sim_no: int,
-                 sim_time: int,
-                 system: openmm.System, 
-                 ref_state: ThermodynamicState, 
-                 temperatures: np.array,
-                 init_positions: np.array, 
-                 init_box_vectors: np.array, 
-                 output_dir: str,
-                 output_ncdf: str, 
-                 checkpoint_ncdf: str,
-                 iter_length: int,
-                 dt: float, 
-                 init_velocities=None,
-                 sampler_states=None,
-                 context=None,
-                 spring_constants:np.array=None,
-                 restrained_atoms_dsl:str=None,
-                 mdtraj_topology:md.Topology=None,
-                 spring_centers:np.array=None):
+    def __init__(self, sim_no: int, sim_time: unit.Quantity, system: openmm.System,
+                 ref_state: ThermodynamicState, temperatures: np.array,
+                 init_positions: np.array, init_box_vectors: np.array, 
+                 output_dir: str, output_ncdf: str, checkpoint_ncdf: str,
+                 iter_length: unit.Quanity, dt: unit.Quantity,
+                 init_velocities=None, sampler_states=None,
+                 context=None, 
+                 spring_constants:np.array=None, restrained_atoms_dsl=None,
+                 mdtraj_topology=None, spring_centers:np.array=None):
         """
         """
         # Assign attributes
