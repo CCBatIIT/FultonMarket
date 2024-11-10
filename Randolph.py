@@ -27,7 +27,7 @@ class Randolph():
                  ref_state: ThermodynamicState, temperatures: np.array,
                  init_positions: np.array, init_box_vectors: np.array, 
                  output_dir: str, output_ncdf: str, checkpoint_ncdf: str,
-                 iter_length: unit.Quanity, dt: unit.Quantity,
+                 iter_length: unit.Quantity, dt: unit.Quantity,
                  init_velocities=None, sampler_states=None,
                  context=None, 
                  spring_constants:np.array=None, restrained_atoms_dsl=None,
