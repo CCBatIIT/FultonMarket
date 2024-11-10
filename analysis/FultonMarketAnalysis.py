@@ -21,7 +21,6 @@ geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - 
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
 
-
 class FultonMarketAnalysis():
     """
     Analysis class for Replica Exchange Simulations written with Fulton Market
@@ -74,13 +73,13 @@ class FultonMarketAnalysis():
 
         
         
-    def get_state_energies(self, state_indice: int=0):
+    def get_state_energies(self, state_index: int=0):
         """
         get energies of each replicate in its own state (iters, state, state) -> (iters, state)
         Optionally reduce energies based on temperatures, and concatenate the list of arrays to a single array
         """
         
-        state_energies = self.energies[:,state_indice, state_indice]
+        state_energies = self.energies[:,state_index, state_index]
         
         return state_energies
     
@@ -136,7 +135,7 @@ class FultonMarketAnalysis():
     
     
     
-    def importance_resampling(self, n_samples:int=1000, equilibration_method: str='PCA'):
+    def importance_resampling(self, n_samples:int=1000, equilibration_method: str='PCA', specify_state:int=0):
         """
         """           
         self.equilibration_method = equilibration_method
@@ -366,8 +365,6 @@ class FultonMarketAnalysis():
             for ind in interpolation_ind_set:
                 interpolation_map[i] = interpolation_map[i][interpolation_map[i] != ind]
 
-        # print(interpolation_map)
-
         # Iterate throught simulations to backfill energies
         backfilled_energies = []
         backfilled_potentials = []
@@ -461,9 +458,12 @@ class FultonMarketAnalysis():
             # Save equilibration/uncorrelated inds to new variables
             weights = pca.explained_variance_ratio_[:n_components]
             self.t0 = np.sum(equil_times  * (weights / weights.sum())).astype(int)
+         
+        elif self.equilibration_method == 'None':
+            self.t0 = 0
           
         else:
-            print('equilibration_method must be either PCA or energy')
+            print('equilibration_method must be either PCA or energy (or None if youre zesty)')
 
         fprint(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns')
 

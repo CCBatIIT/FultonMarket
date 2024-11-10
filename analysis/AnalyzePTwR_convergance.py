@@ -60,10 +60,16 @@ analyzer.equilibration_method = 'energy'
 
 
 # Compute free energy convergance
+<<<<<<< HEAD
 analyzer.equilibration_method = 'energy'
 analyzer._determine_equilibration()
 xs, ys, y_stds = free_energy_convergence(analyzer, start=analyzer.t0+100, size_domain=100)
 np.save(os.path.join(sim_dir, centroid + '_0', 'convergance.npy'), np.array([xs, ys, y_stds]))
+=======
+y_stdss = []
+xs, ys, y_stds = free_energy_convergence(analyzer, size_domain=100)
+np.save(os.path.join(sim_dir, centroid + '_0', 'convergance.npy'), np.array(xs, ys, y_stds))
+>>>>>>> 2b3b7e6b77f6a49e2710efc9dfcd3dcb8ce9e9a0
 
 
 
