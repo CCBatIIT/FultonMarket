@@ -297,7 +297,7 @@ class Randolph():
 
         init_positions = np.array([self.sampler_states[i].positions._value.copy() for i in range(len(self.sampler_states))])
         init_box_vectors = np.array([self.sampler_states[i].box_vectors._value.copy() for i in range(len(self.sampler_states))])
-        if self.sim_no > 0:
+        if self.sim_no > 0 and self.sampler_states[0].velocities is not None:
             init_velocities = np.array([self.sampler_states[i].velocities._value.copy() for i in range(len(self.sampler_states))])
         else:
             init_velocities = None

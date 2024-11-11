@@ -139,7 +139,7 @@ class FultonMarketPTwFR(FultonMarket):
     def _build_sampler_states(self):
         
         # Build sampler states
-        if self.sim_no == 0:
+        if self.sim_no == 0 or (hasattr(self, 'init_velocities') and self.init_velocities is None):
             printf('Setting initial positions with the "No Velocities" method')
             self.sampler_states = build_sampler_states(self, self.init_positions, self.init_box_vectors, None)
         else:

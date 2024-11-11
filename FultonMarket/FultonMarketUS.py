@@ -186,11 +186,11 @@ class FultonMarketUS(FultonMarketPTwFR):
         #Load an analyzer
         input_dir = os.path.abspath(os.path.join(self.save_dir, '..'))
         #The analyzer will handle the loading of energies and any backfilling
-        analyzer = FultonMarketAnalysis(input_dir, self.input_pdb)
+        analyzer = FultonMarketAnalysis(input_dir, self.input_pdb[0])
         #Set the new intial positions and box vecs by resampling
         new_init_positions = []
         new_init_box_vecs = []
-        for i in range(self.simulation.n_replicates):
+        for i in range(len(self.temperatures)):
             analyzer.importance_resampling(n_samples=1, equilibration_method='None', specify_state=i)
             #sets analyzer.resampled_inds and analyzer.weights
             traj = analyzer.write_resampled_traj('temp.pdb', 'temp.dcd', return_traj=True)
@@ -198,11 +198,11 @@ class FultonMarketUS(FultonMarketPTwFR):
             os.remove('temp.pdb')
             os.remove('temp.dcd')
             #Add positions and box vectors to the list
-            new_init_positions.append(traj.openmm_positions(0))
-            new_init_box_vecs.append(traj.openmm_boxes(0))
+            new_init_positions.append(traj.xyz[0])
+            new_init_box_vecs.append(traj.unitcell_vectors[0])
         
-        self.init_positions = new_init_positions
-        self.init_box_vecs = new_init_box_vecs
+        self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=new_init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
+        self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=new_init_box_vecs, mask=False, fill_value=1e+20), unit=unit.nanometer))
         self.init_velocities = None
 
 
