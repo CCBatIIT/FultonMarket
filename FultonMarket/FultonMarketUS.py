@@ -13,6 +13,7 @@ from copy import deepcopy
 #Custom Imports
 from .FultonMarketUtils import *
 from .FultonMarketPTwFR import FultonMarketPTwFR
+from .analysis.FultonMarketAnalysis import FultonMarketAnalysis
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
@@ -32,6 +33,14 @@ class FultonMarketUS(FultonMarketPTwFR):
         _set_init_from_trailblazing(self)
         
     Overwrites to Inherited Methods:
+
+        run(self, total_sim_time: float, iter_length: float=0.01, dt: float=2.0, 
+            sim_length=5, init_overlap_thresh: float=0.5, term_overlap_thresh: float=0.35,
+            output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/')
+
+                This method was overwritten to switch the default sim_length (Randolph Length) to 5 agg nanoseconds
+                Between Randolph runs, the resampling of positions is also added.
+                A Default iteration length of 10 picoseconds is also set specifically for this class
     
         _get_restrained_atoms(self)
         
@@ -151,6 +160,76 @@ class FultonMarketUS(FultonMarketPTwFR):
         self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
         
 
+    def run(self, 
+            total_sim_time: float, 
+            iter_length:float=0.01, 
+            dt: float=2.0, 
+            sim_length=5,
+            init_overlap_thresh: float=0.5, 
+            term_overlap_thresh: float=0.35,
+            output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/')):
+
+        # Set attr
+        self.total_sim_time = total_sim_time
+        self.iter_length = iter_length
+        self.dt = dt
+        self.sim_length = sim_length
+        self.init_overlap_thresh = init_overlap_thresh
+        self.term_overlap_thresh = term_overlap_thresh
+
+        # Prepare output
+        self.output_dir = output_dir
+        self.output_ncdf = os.path.join(self.output_dir, 'output.ncdf')
+        self.checkpoint_ncdf = os.path.join(self.output_dir, 'output_checkpoint.ncdf')
+        self.save_dir = os.path.join(self.output_dir, 'saved_variables')
+        if not os.path.exists(self.save_dir):
+            os.mkdir(self.save_dir)
+        
+        printf(f'Found total simulation time of {self.total_sim_time} nanoseconds')
+        printf(f'Found iteration length of {self.iter_length} nanoseconds')
+        printf(f'Found timestep of {self.dt} femtoseconds')
+        printf(f'Found number of replicates {self.n_replicates}')
+        printf(f'Found initial acceptance rate threshold {self.init_overlap_thresh}')
+        printf(f'Found terminal acceptance rate threshold {self.term_overlap_thresh}')
+        printf(f'Found output_dir {self.output_dir}')
+        printf(f'Found Temperature Schedule {[np.round(T._value, 1) for T in self.temperatures]} Kelvin')
+            
+
+        # Loop through short 50 ns simulations to allow for .ncdf truncation
+        self._configure_experiment_parameters(sim_length=self.sim_length)
+        while self.sim_no < self.total_n_sims:
+                         
+            # Initialize Randolph
+            if self.sim_no > 0:
+                self._load_initial_args() #sets positions, velocities, box_vecs, temperatures, and spring_constants
+
+            # Build states
+            self._build_states()
+
+            # Set parameters
+            self._set_parameters()
+
+            self.simulation = Randolph(**self.params)
+            
+            # Run simulation
+            self.simulation.main(init_overlap_thresh=init_overlap_thresh, term_overlap_thresh=term_overlap_thresh)
+
+            # Save simulation
+            self._save_sub_simulation()
+
+            #Resample from the saved directories to get new positions for each state
+            self._resample_init_positions()
+
+            # Delete output.ncdf files if not last simulation 
+            if not self.sim_no+1 == self.total_n_sims:
+                os.remove(self.output_ncdf)
+                os.remove(self.checkpoint_ncdf)
+
+            # Update counter
+            self.sim_no += 1
+    
+    
+    
     
     def _set_init_positions(self):
         pass
@@ -181,6 +260,32 @@ class FultonMarketUS(FultonMarketPTwFR):
         self.spring_centers = make_interpolated_positions_array(self.input_pdb[0], self.input_pdb[1], self.n_replicates)
         assert len(self.temperatures) == self.spring_centers.shape[0]
         printf('Restraining each state to the unique positions of provided selection string')
+
+
+    def _resample_init_positions(self):
+        """
+        """
+        #Load an analyzer
+        input_dir = os.path.abspath(os.path.join(self.save_dir, '..'))
+        #The analyzer will handle the loading of energies and any backfilling
+        analyzer = FultonMarketAnalysis(input_dir, self.input_pdb)
+        #Set the new intial positions and box vecs by resampling
+        new_init_positions = []
+        new_init_box_vecs = []
+        for i in range(self.simulation.n_replicates):
+            analyzer.importance_resampling(n_samples=1, equilibration_method='None', specify_state=i)
+            #sets analyzer.resampled_inds and analyzer.weights
+            traj = analyzer.write_resampled_traj('temp.pdb', 'temp.dcd', return_traj=True)
+            #clean up from that line
+            os.remove('temp.pdb')
+            os.remove('temp.dcd')
+            #Add positions and box vectors to the list
+            new_init_positions.append(traj.openmm_positions(0))
+            new_init_box_vecs.append(traj.openmm_boxes(0))
+        
+        self.init_positions = new_init_positions
+        self.init_box_vecs = new_init_box_vecs
+        self.init_velocities = None
 
 
     
