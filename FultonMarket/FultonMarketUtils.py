@@ -1,10 +1,34 @@
+"""
+Imports within this module
+
+Lambda Functions and Variables
+geometric_distribution(a, b, c) - create a geometric (logarithmic) distribution from a to b with c values
+spring_constant_unit - openmm.unit with units of Joule/(mol*Angstrom^2)
+rmsd(a, b) - If a is a single frame and b a trajectory, calculates the rmsd of traj b w.r.t. a
+             If a and b are trajectories of the same size, calculates the frame to frame
+printf(string) - Shorthand print statement, also prints the current date and time, invoking the flush=True argument
+
+Functions
+convert_to_TrackedQuantity(np.array, openmm.unit) - Converts a numpy array to a tracked Quantity array with the provided unit
+swap_traj_env(traj1, traj2)
+build_thermodynamic_states(self)
+restrain_atoms(self)
+build_sampler_states(self)
+truncate_netcdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False)
+make_interpolated_positions_array(spring_centers1_pdb, spring_centers2_pdb, num_replicates)
+make_interpolated_positions_array_from_selections(spring_centers1_pdb, selection_1, spring_centers2_pdb, num_replicates, selection_2=None):
+restrain_atoms_by_dsl(thermodynamic_state, topology, atoms_dsl, spring_constant, spring_center)
+restrain_atoms_by_index(thermodynamic_state, restrained_atom_indices, spring_constant, spring_center)
+restrain_openmm_system_by_dsl(openmm_system, topology, atoms_dsl, spring_constant, spring_center, preselected_centers=True)
+"""
+
 import numpy as np
 import netCDF4 as nc
-from openmmtools.multistate import MultiStateReporter
 from openmmtools.states import SamplerState, ThermodynamicState
 from openmmtools.utils.utils import TrackedQuantity
 import mdtraj as md
-import openmm
+from openmm import *
+from openmm.app import *
 import openmm.unit as unit
 import math
 from datetime import datetime
@@ -126,6 +150,15 @@ def build_sampler_states(self, pos: np.array, box_vec: np.array, velos: np.array
         return [SamplerState(positions=pos[i], box_vectors=box_vec[i]) for i in range(self.n_replicates)]
 
 
+def get_some_objects(pdb_file, xml_file):
+    pdb = PDBFile(pdb_file)
+    with open(xml_file, 'r') as f:
+        system = XmlSerializer.deserialize(f.read())
+    openmm_top = pdb.topology
+    mdtraj_top = md.Topology.from_openmm(openmm_top)
+    return pdb, system, openmm_top, mdtraj_top
+
+
 
 def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
     print(f'Truncating {ncdf_in} to {ncdf_out}')
@@ -220,6 +253,17 @@ def make_interpolated_positions_array(spring_centers1_pdb, spring_centers2_pdb, 
     
     return positions_array
 
+
+def generate_selection_string(intracellular_inds:np.array):
+    """
+    Generates the selection string for restrained atoms
+    Intracellular indices must be a numpy array of indices
+    """
+    restraint_selection_string = 'protein and ('
+    for ind in intracellular_inds:
+        restraint_selection_string += f'(resid {ind}) or '
+    restraint_selection_string = restraint_selection_string[:-4] + ')'
+    return restraint_selection_string
 
 
 def make_interpolated_positions_array_from_selections(spring_centers1_pdb, selection_1, spring_centers2_pdb, num_replicates, selection_2=None):

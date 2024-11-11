@@ -16,7 +16,7 @@ from typing import List
 from datetime import datetime
 import mdtraj as md
 from copy import deepcopy
-from FultonMarketUtils import *
+from .FultonMarketUtils import *
 
 
 class Randolph():

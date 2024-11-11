@@ -1,27 +1,51 @@
+#Package Imports
 from openmm import *
 from openmm.app import *
-from openmmtools import states, mcmc, multistate
 from openmmtools.states import SamplerState, ThermodynamicState
-from openmmtools.multistate import ParallelTemperingSampler, MultiStateReporter
-from openmmtools.utils.utils import TrackedQuantity
-import tempfile
-import os, sys, math
-sys.path.append('../MotorRow')
 import numpy as np
-np.seterr(divide='ignore', invalid='ignore')
 import netCDF4 as nc
-from typing import List
-from datetime import datetime
-import mdtraj as md
-from FultonMarketUtils import *
-from Randolph import Randolph
-import faulthandler
+import os, sys, faulthandler
+
+#Custom Imports
+from .FultonMarketUtils import *
+from .Randolph import Randolph
+
+#Set some things
+np.seterr(divide='ignore', invalid='ignore')
+sys.path.append('../MotorRow')
 faulthandler.enable()
 
 
 class FultonMarket():
     """
-    Replica exchange
+    Unrestrained Replica Exchange
+
+    Methods:
+         __init__(self, input_pdb: str, input_system: str, input_state: str=None, T_min: float=300, T_max: float=367.447, n_replicates: int=12)
+    
+        run(self, total_sim_time: float, iter_length: float, dt: float=2.0, sim_length=50,
+            init_overlap_thresh: float=0.5, term_overlap_thresh: float=0.35,
+            output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/'))
+    
+        _set_init_positions(self)
+    
+        _set_init_box_vectors(self)
+    
+        _set_parameters(self)
+    
+        _build_states(self)
+    
+        _build_sampler_states(self)
+    
+        _build_thermodynamic_states(self)
+    
+        _save_sub_simulation(self)
+    
+        _load_initial_args(self)
+    
+        _configure_experiment_parameters(self, sim_length=50)
+    
+        _recover_arguments(self)
     """
 
     def __init__(self, 
@@ -50,7 +74,7 @@ class FultonMarket():
         --------
             FultonMarket obj.
         """
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Welcome to FultonMarket.', flush=True)
+        printf('Welcome to FultonMarket.')
 
 
         # Set attr
@@ -61,12 +85,12 @@ class FultonMarket():
         self.input_pdb = input_pdb
         self.pdb = PDBFile(input_pdb)
         self._set_init_positions()
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found input_pdb:', input_pdb, flush=True)
+        printf(f'Found input_pdb: {input_pdb}')
 
         # Unpack .xml
         self.system = XmlSerializer.deserialize(open(input_system, 'r').read())
         self._set_init_box_vectors()
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found input_system:', input_system, flush=True)
+        printf(f'Found input_system: {input_system}')
 
         # Build state
         if input_state != None:
@@ -74,7 +98,7 @@ class FultonMarket():
             sim = Simulation(self.pdb.topology, self.system, integrator)
             sim.loadState(input_state)
             self.context = sim.context
-            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found input_state:', input_state, flush=True)
+            printf(f'Found input_state: {input_state}')
 
 
 
@@ -152,15 +176,15 @@ class FultonMarket():
         self.save_dir = os.path.join(self.output_dir, 'saved_variables')
         if not os.path.exists(self.save_dir):
             os.mkdir(self.save_dir)
-
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found total simulation time of', self.total_sim_time, 'nanoseconds', flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found iteration length of', self.iter_length, 'nanoseconds', flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found timestep of', self.dt, 'femtoseconds', flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found number of replicates', self.n_replicates, flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found initial acceptance rate threshold', self.init_overlap_thresh, flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found terminal acceptance rate threshold', self.term_overlap_thresh, flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found output_dir', self.output_dir, flush=True)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found Temperature Schedule', [np.round(T._value, 1) for T in self.temperatures], 'Kelvin', flush=True)
+        
+        printf(f'Found total simulation time of {self.total_sim_time} nanoseconds')
+        printf(f'Found iteration length of {self.iter_length} nanoseconds')
+        printf(f'Found timestep of {self.dt} femtoseconds')
+        printf(f'Found number of replicates {self.n_replicates}')
+        printf(f'Found initial acceptance rate threshold {self.init_overlap_thresh}')
+        printf(f'Found terminal acceptance rate threshold {self.term_overlap_thresh}')
+        printf(f'Found output_dir {self.output_dir}')
+        printf(f'Found Temperature Schedule {[np.round(T._value, 1) for T in self.temperatures]} Kelvin')
             
 
         # Loop through short 50 ns simulations to allow for .ncdf truncation
@@ -303,10 +327,10 @@ class FultonMarket():
         
         # Configure experiment parameters
         self.sim_no = len(os.listdir(self.save_dir))
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Found n_sims_completed to be', self.sim_no, flush=True)
+        printf(f'Found n_sims_completed to be {self.sim_no}')
         self.sim_time = sim_length # ns
         self.total_n_sims = np.ceil(self.total_sim_time / self.sim_time)
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated total_n_sims to be', self.total_n_sims, flush=True)
+        printf(f'Calculated total_n_sims to be {self.total_n_sims}')
 
 
     

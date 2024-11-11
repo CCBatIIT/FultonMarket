@@ -1,31 +1,67 @@
+#Package Imports
 from openmm import *
 from openmm.app import *
-from openmmtools import states, mcmc, multistate
-from openmmtools.states import SamplerState, ThermodynamicState
-from openmmtools.multistate import ParallelTemperingSampler, MultiStateReporter
 from openmmtools.utils.utils import TrackedQuantity
 from openmm.unit.quantity import Quantity
 from openmm.vec3 import Vec3
-import tempfile
-import os, sys, math
-import numpy as np
-np.seterr(divide='ignore', invalid='ignore')
-import netCDF4 as nc
-from typing import List
-from datetime import datetime
 import mdtraj as md
-from FultonMarketUtils import *
-from FultonMarket import FultonMarket
-from FultonMarketPTwFR import FultonMarketPTwFR
-from Randolph import Randolph
-import faulthandler
+import os, faulthandler
+import numpy as np
+from typing import List
 from copy import deepcopy
+
+#Custom Imports
+from .FultonMarketUtils import *
+from .FultonMarketPTwFR import FultonMarketPTwFR
+
+#Set some things
+np.seterr(divide='ignore', invalid='ignore')
 faulthandler.enable()
 
 
 class FultonMarketUS(FultonMarketPTwFR):
     """
-    Parallel tempering with restraints
+    Umbrella Sampling at a set temperature
+
+    Methods Custom to This Class:
+    
+        __init__(self, input_pdb: List[str], input_system: List[str], restrained_atoms_dsl: str,
+                 init_positions_dcd: List[str], K=83.68*spring_constant_unit, T_min: float=310,
+                 T_max: float=310, n_replicates: int=12)
+        
+        _set_init_from_trailblazing(self)
+        
+    Overwrites to Inherited Methods:
+    
+        _get_restrained_atoms(self)
+        
+        _set_init_positions(self)
+        
+        _set_init_box_vectors(self)
+        
+    Methods Inherited from FultonMarketPTwFR:    
+    
+        _set_parameters(self)
+        
+        _build_states(self)
+        
+        _build_sampler_states(self)
+        
+        _build_thermodynamic_states(self)
+        
+        _save_sub_simulation(self)
+        
+        _load_initial_args(self)
+
+    Methods inherited from FultonMarket through FultonMarketPTwFR:
+    
+        run(self, total_sim_time: float, iter_length: float, dt: float=2.0, sim_length=50,
+            init_overlap_thresh: float=0.5, term_overlap_thresh: float=0.35, output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/'))
+        
+        _configure_experiment_parameters(self, sim_length=50)
+        
+        _recover_arguments(self)
+
     """
 
     def __init__(self, 
@@ -56,7 +92,7 @@ class FultonMarketUS(FultonMarketPTwFR):
         --------
             FultonMarket obj.
         """
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Welcome to FultonMarketUS.', flush=True)
+        printf(f'Welcome to FultonMarketUS.')
 
         # Copy input_pdb
         self.input_pdb_copy = deepcopy(input_pdb)

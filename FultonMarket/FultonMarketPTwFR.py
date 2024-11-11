@@ -1,27 +1,54 @@
+#Package Imports
 from openmm import *
 from openmm.app import *
-from openmmtools import states, mcmc, multistate
-from openmmtools.states import SamplerState, ThermodynamicState
-from openmmtools.multistate import ParallelTemperingSampler, MultiStateReporter
-from openmmtools.utils.utils import TrackedQuantity
-import tempfile
-import os, sys, math
-import numpy as np
-np.seterr(divide='ignore', invalid='ignore')
-import netCDF4 as nc
-from typing import List
-from datetime import datetime
 import mdtraj as md
-from FultonMarketUtils import *
-from FultonMarket import FultonMarket
-from Randolph import Randolph
-import faulthandler
+import os, faulthandler
+import numpy as np
+
+#Custom Imports
+from .FultonMarketUtils import *
+from .FultonMarket import FultonMarket
+
+#Set some things
+np.seterr(divide='ignore', invalid='ignore')
 faulthandler.enable()
 
 
 class FultonMarketPTwFR(FultonMarket):
     """
     Parallel tempering with restraints
+
+    Methods Custom to This Class
+        def __init__(self, input_pdb: str, input_system: str, restrained_atoms_dsl: str,
+                     input_state: str=None, K=83.68*spring_constant_unit, T_min: float=310, 
+                     T_max: float=367.447, n_replicates: int=12)
+        
+        def _get_restrained_atoms(self)
+
+    Overwrites to Inherited Methods:
+        def _set_parameters(self)
+        
+        def _build_states(self)
+        
+        def _build_sampler_states(self)
+        
+        def _build_thermodynamic_states(self)
+        
+        def _save_sub_simulation(self)
+        
+        def _load_initial_args(self)
+
+    Methods Inherited from FultonMarket:
+        run(self, total_sim_time: float, iter_length: float, dt: float=2.0, sim_length=50,
+            init_overlap_thresh: float=0.5, term_overlap_thresh: float=0.35, output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/'))
+        
+        _set_init_positions(self)
+        
+        _set_init_box_vectors(self)
+        
+        _configure_experiment_parameters(self, sim_length=50)
+        
+        _recover_arguments(self)
     """
 
     def __init__(self, 
@@ -52,7 +79,7 @@ class FultonMarketPTwFR(FultonMarket):
         --------
             FultonMarket obj.
         """
-        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Welcome to FultonMarketPTwR.', flush=True)
+        printf('Welcome to FultonMarketPTwR')
         super().__init__(input_pdb=input_pdb,
                          input_system=input_system,
                          input_state=input_state,
