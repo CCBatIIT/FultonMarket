@@ -33,20 +33,14 @@ class FultonMarketUS(FultonMarketPTwFR):
         _set_init_from_trailblazing(self)
         
     Overwrites to Inherited Methods:
-
-        run(self, total_sim_time: float, iter_length: float=0.01, dt: float=2.0, 
-            sim_length=5, init_overlap_thresh: float=0.5, term_overlap_thresh: float=0.35,
-            output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/')
-
-                This method was overwritten to switch the default sim_length (Randolph Length) to 5 agg nanoseconds
-                Between Randolph runs, the resampling of positions is also added.
-                A Default iteration length of 10 picoseconds is also set specifically for this class
     
         _get_restrained_atoms(self)
         
         _set_init_positions(self)
         
         _set_init_box_vectors(self)
+
+        _load_initial_args(self)
         
     Methods Inherited from FultonMarketPTwFR:    
     
@@ -60,8 +54,6 @@ class FultonMarketUS(FultonMarketPTwFR):
         
         _save_sub_simulation(self)
         
-        _load_initial_args(self)
-
     Methods inherited from FultonMarket through FultonMarketPTwFR:
     
         run(self, total_sim_time: float, iter_length: float, dt: float=2.0, sim_length=50,
@@ -77,7 +69,7 @@ class FultonMarketUS(FultonMarketPTwFR):
                  input_pdb: List[str], 
                  input_system: List[str], 
                  restrained_atoms_dsl: str,
-                 init_positions_dcd: List[str], 
+                 init_positions_dcd: str, 
                  K=83.68*spring_constant_unit,
                  T_min: float=310, 
                  T_max: float=310, 
@@ -127,108 +119,15 @@ class FultonMarketUS(FultonMarketPTwFR):
 
         # Make assertions
         printf(f"Assigning Initial Positions from Bilateral Trailblazing DCDs {self.init_positions_dcd}")
-        assert False not in [os.path.exists(dcd_fn) for dcd_fn in self.init_positions_dcd], self.init_positions_dcd
+        assert os.path.exists(self.init_positions_dcd), self.init_positions_dcd
 
         # Load traj objs
-        init_traj1 = md.load(self.init_positions_dcd[0], top=self.input_pdb[0])
-        init_traj2 = md.load(self.init_positions_dcd[1], top=self.input_pdb[1])
-        assert init_traj1.n_frames == init_traj2.n_frames
+        init_traj = md.load(self.init_positions_dcd, top=self.input_pdb[0])
 
-        # Replace env in init_traj2 if different
-        init_traj2 = swap_traj_env(init_traj1, init_traj2)
-
-        num_per_leg = self.n_replicates // 2
-        
-        #In the bilateral case, feed the initial positions for the second half backward (reversed)
-        self.B_range = deepcopy(num_per_leg)
-        if self.n_replicates %2 == 1:
-            assert num_per_leg + 1 == init_traj1.n_frames
-            self.A_range = num_per_leg + 1
-
-        else:
-            assert num_per_leg == init_traj1.n_frames
-            self.A_range = num_per_leg 
-
-        init_traj = init_traj1[:self.A_range].join(init_traj2[:self.B_range][::-1])
-        # init_traj[0].save_pdb('init_traj.pdb')
-        # init_traj.save_dcd('init_traj.dcd')
-        print('init_traj', init_traj.xyz.shape)
-
-        
         # Get pos, box_vectors
         self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.xyz, mask=False, fill_value=1e+20), unit=unit.nanometer))
         self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
-        
 
-    def run(self, 
-            total_sim_time: float, 
-            iter_length:float=0.01, 
-            dt: float=2.0, 
-            sim_length=5,
-            init_overlap_thresh: float=0.5, 
-            term_overlap_thresh: float=0.35,
-            output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/')):
-
-        # Set attr
-        self.total_sim_time = total_sim_time
-        self.iter_length = iter_length
-        self.dt = dt
-        self.sim_length = sim_length
-        self.init_overlap_thresh = init_overlap_thresh
-        self.term_overlap_thresh = term_overlap_thresh
-
-        # Prepare output
-        self.output_dir = output_dir
-        self.output_ncdf = os.path.join(self.output_dir, 'output.ncdf')
-        self.checkpoint_ncdf = os.path.join(self.output_dir, 'output_checkpoint.ncdf')
-        self.save_dir = os.path.join(self.output_dir, 'saved_variables')
-        if not os.path.exists(self.save_dir):
-            os.mkdir(self.save_dir)
-        
-        printf(f'Found total simulation time of {self.total_sim_time} nanoseconds')
-        printf(f'Found iteration length of {self.iter_length} nanoseconds')
-        printf(f'Found timestep of {self.dt} femtoseconds')
-        printf(f'Found number of replicates {self.n_replicates}')
-        printf(f'Found initial acceptance rate threshold {self.init_overlap_thresh}')
-        printf(f'Found terminal acceptance rate threshold {self.term_overlap_thresh}')
-        printf(f'Found output_dir {self.output_dir}')
-        printf(f'Found Temperature Schedule {[np.round(T._value, 1) for T in self.temperatures]} Kelvin')
-            
-
-        # Loop through short 50 ns simulations to allow for .ncdf truncation
-        self._configure_experiment_parameters(sim_length=self.sim_length)
-        while self.sim_no < self.total_n_sims:
-                         
-            # Initialize Randolph
-            if self.sim_no > 0:
-                self._load_initial_args() #sets positions, velocities, box_vecs, temperatures, and spring_constants
-
-            # Build states
-            self._build_states()
-
-            # Set parameters
-            self._set_parameters()
-
-            self.simulation = Randolph(**self.params)
-            
-            # Run simulation
-            self.simulation.main(init_overlap_thresh=init_overlap_thresh, term_overlap_thresh=term_overlap_thresh)
-
-            # Save simulation
-            self._save_sub_simulation()
-
-            #Resample from the saved directories to get new positions for each state
-            self._resample_init_positions()
-
-            # Delete output.ncdf files if not last simulation 
-            if not self.sim_no+1 == self.total_n_sims:
-                os.remove(self.output_ncdf)
-                os.remove(self.checkpoint_ncdf)
-
-            # Update counter
-            self.sim_no += 1
-    
-    
     
     
     def _set_init_positions(self):
@@ -262,6 +161,25 @@ class FultonMarketUS(FultonMarketPTwFR):
         printf('Restraining each state to the unique positions of provided selection string')
 
 
+
+    def _load_initial_args(self):
+
+        # Get last directory
+        load_no = self.sim_no - 1
+        self.load_dir = os.path.join(self.save_dir, str(load_no))
+        
+        # Load temps
+        self.temperatures = np.load(os.path.join(self.load_dir, 'temperatures.npy'))
+        self.temperatures = [t*unit.kelvin for t in self.temperatures]
+
+        # Load spring centers
+        self.spring_centers = np.load(os.path.join(self.load_dir, 'spring_centers.npy'))
+
+        # Get pos, box_vec by resampling
+        self._resample_init_positions()
+
+
+    
     def _resample_init_positions(self):
         """
         """
