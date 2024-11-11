@@ -81,7 +81,7 @@ if response == 'y':
                                          centroid_A_name='centroid_12',
                                          centroid_B_name='centroid_17',
                                          save_dir=test_output_dir,
-                                         num_replicates=10,
+                                         num_replicates=5,
                                          temp=350*unit.kelvin,
                                          pressure=1*unit.bar)
     
@@ -90,7 +90,7 @@ if response == 'y':
                                 spring_constant=83.68*spring_constant_unit)
 
     UT.run_trailblazing(ts=2*unit.femtosecond,
-                        n_frames_per_replicate=50,
+                        n_frames_per_replicate=25,
                         time_btw_frames=1*unit.picosecond)
 
     UT.save_results()
@@ -108,11 +108,6 @@ if response == 'y':
         response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
-
-    # Truncate .dcd
-    traj = md.load('./Test_Cases/UniLat_test/final_pos.dcd', top='./Test_Cases/input/centroid_12.pdb')
-    traj = traj[::2]
-    traj.save_dcd('./Test_Cases/UniLat_test/final_pos.dcd')
             
     init_kwargs = dict(input_pdb=['./Test_Cases/input/centroid_12.pdb', './Test_Cases/input/centroid_17.pdb'],
                        input_system='./Test_Cases/input/centroid_12_sys.xml',
