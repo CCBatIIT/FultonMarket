@@ -51,7 +51,7 @@ class FultonMarket():
     def __init__(self, 
                  input_pdb: str, 
                  input_system: str, 
-                 input_state: str=None,
+                 input_state: str,
                  T_min: float=300, 
                  T_max: float=367.447, 
                  n_replicates: int=12):
@@ -260,7 +260,7 @@ class FultonMarket():
         
         # Build thermodynamic states
         if not hasattr(self, 'thermodynamic_states'):
-            self.thermodyanic_states = [ThermodynamicState(system=self.system, temperature=self.temperatures[0], pressure=1.0*unit.bar)] 
+            self.thermodynamic_states = [ThermodynamicState(system=self.system, temperature=self.temperatures[0], pressure=1.0*unit.bar)] 
 
 
 

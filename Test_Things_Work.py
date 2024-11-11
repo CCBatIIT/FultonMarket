@@ -39,13 +39,21 @@ cb2_intracellular_inds = cb2_intracellular_inds - 23 # Zero indexed resids
 #Fulton Market Test
 response = input('Proceed with testing FultonMarket? y/n \n')
 if response == 'y':
+    #Setup Block
     test_output_dir = './Test_Cases/FM_test/'
+    if not os.path.isdir(test_output_dir):
+        os.mkdir(test_output_dir)
+    else:
+        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
+        if response == 'y':
+            delete_all_files_in_dir(test_output_dir)
     
-    init_kwargs = dict(input_pdb='./Test_Cases/input/centroid_12.pdb',
-                       input_system='./Test_Cases/input/centroid_12_sys.xml',
-                       input_state=None,
+    
+    init_kwargs = dict(input_pdb='./Test_Cases/input/7OH.pdb',
+                       input_system='./Test_Cases/input/7OH_sys.xml',
+                       input_state='./Test_Cases/input/7OH_state.xml',
                        n_replicates=5)
-    run_kwargs = dict(total_sim_time=2.0, iter_length=0.001, sim_length=0.5,
+    run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.1,
                       output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
     market = FultonMarket(**init_kwargs)
     market.run(**run_kwargs)
@@ -114,7 +122,7 @@ if response == 'y':
                        restrained_atoms_dsl=generate_selection_string(cb2_intracellular_inds),
                        init_positions_dcd='./Test_Cases/UniLat_test/final_pos.dcd',
                        n_replicates=5)
-    run_kwargs = dict(total_sim_time=2.0, iter_length=0.01, sim_length=0.5,
+    run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.1,
                       output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
     market = FultonMarketUS(**init_kwargs)
     market.run(**run_kwargs)
