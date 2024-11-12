@@ -72,12 +72,6 @@ class Randolph():
         self.current_cycle = 0
         while self.current_cycle <= self.n_cycles:
 
-            # Minimize 
-            if self.sim_no == 0 and self.current_cycle == 0:
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-                self.simulation.minimize() 
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished.', flush=True)
-
             # Advance 1 cycle
             self._run_cycle()
             
