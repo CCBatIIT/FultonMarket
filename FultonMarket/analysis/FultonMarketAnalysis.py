@@ -560,7 +560,7 @@ class FultonMarketAnalysis():
                     
     
                     # Correct
-                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[,sele]*10, self.temperatures, spring_constant)
+                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[:,sele]*10, self.temperatures, spring_constant)
     
         self.energies = corrected_energies.copy()
         del corrected_energies
