@@ -14,10 +14,7 @@ from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
-from openmm import unit
 
-spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
-gas_constant_unit = (unit.joule)/(unit.mole*unit.kelvin)
 fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
@@ -81,9 +78,9 @@ def detect_PC_equil(pc, reduced_cartesian):
     return t0*10
 
 def get_energies_without_harmonic(energies, pos, centers, T, spring_constant):
-    x_dis = np.sum((centers[:,:,0] - pos[:,:,0])**2, axis=1)
-    y_dis = np.sum((centers[:,:,1] - pos[:,:,1])**2, axis=1)
-    z_dis = np.sum((centers[:,:,2] - pos[:,:,2])**2, axis=1)
+    x_dis = np.sum((centers[:,0] - pos[:,0])**2, axis=0)
+    y_dis = np.sum((centers[:,1] - pos[:,1])**2, axis=0)
+    z_dis = np.sum((centers[:,2] - pos[:,2])**2, axis=0)
     displacement = np.sum((x_dis, y_dis, z_dis), axis=0)
     corrected_energies = energies - (1 / (2 * 8.3145 * T)) * spring_constant * displacement
 

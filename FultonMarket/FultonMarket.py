@@ -190,7 +190,7 @@ class FultonMarket():
         # Loop through short 50 ns simulations to allow for .ncdf truncation
         self._configure_experiment_parameters(sim_length=self.sim_length)
         while self.sim_no < self.total_n_sims:
-                         
+
             # Initialize Randolph
             if self.sim_no > 0:
                 self._load_initial_args() #sets positions, velocities, box_vecs, temperatures, and spring_constants

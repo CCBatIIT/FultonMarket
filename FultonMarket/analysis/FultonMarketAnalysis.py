@@ -14,11 +14,8 @@ from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
-from openmm import unit
 from FultonMarketAnalysisUtils import *
 
-spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
-gas_constant_unit = (unit.joule)/(unit.mole*unit.kelvin)
 fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
@@ -59,8 +56,8 @@ class FultonMarketAnalysis():
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         if all([os.path.exists(os.path.join(storage_dir, 'spring_centers.npy')) for storage_dir in self.storage_dirs]):
-            self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-            self.spring_centers = self.spring_centers_list[-1]
+            self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r') for storage_dir in self.storage_dirs]
+            self.spring_centers = self.spring_centers_list[-1] 
             fprint(f'Shape of final spring_centers determined to be: {self.spring_centers.shape}')
 
             
@@ -542,25 +539,25 @@ class FultonMarketAnalysis():
         # Iterate through frames
         corrected_energies = np.empty(self.energies.shape)
         for frame in range(self.t0, corrected_energies.shape[0]):
-    
+            if frame%10 == 0:
+                fprint(frame)
+            
             # Iterate through primary states
             for state1 in range(corrected_energies.shape[1]):
     
                 # Get frame, state positions
                 sim_no, sim_iter, sim_rep_ind = self.map[frame, state1]
-                pos = np.array([self.positions[sim_no][sim_iter][sim_rep_ind][sele] for i in range(len(self.temperatures))]) 
+                pos = self.positions[sim_no][sim_iter][sim_rep_ind][sele]
+                spring_centers = self.spring_centers[0,sele]
     
                 # Iterate through secondary states
                 for state2, temp2 in enumerate(self.temperatures):
     
                     # Get frame, state, state energies
                     energies = self.energies[frame, state1, :]
-
-                    # Get spring_centers
-                    
     
                     # Correct
-                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[:,sele]*10, self.temperatures, spring_constant)
+                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, spring_centers*10, self.temperatures, spring_constant)
     
         self.energies = corrected_energies.copy()
         del corrected_energies

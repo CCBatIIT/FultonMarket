@@ -118,16 +118,16 @@ class FultonMarketUS(FultonMarketPTwFR):
     def _set_init_from_trailblazing(self):
 
         # Make assertions
-        printf(f"Assigning Initial Positions from Bilateral Trailblazing DCDs {self.init_positions_dcd}")
+        printf(f"Assigning Initial Positions from Unilaterl Trailblazing DCD {self.init_positions_dcd}")
         assert os.path.exists(self.init_positions_dcd), self.init_positions_dcd
 
         # Load traj objs
         init_traj = md.load(self.init_positions_dcd, top=self.input_pdb[0])
+        printf(f"Read {init_traj.n_frames} number of states from trailblazing")
 
         # Get pos, box_vectors
         self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.xyz, mask=False, fill_value=1e+20), unit=unit.nanometer))
         self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
-
     
     
     def _set_init_positions(self):
