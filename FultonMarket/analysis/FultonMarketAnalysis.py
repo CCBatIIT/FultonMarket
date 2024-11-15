@@ -61,6 +61,8 @@ class FultonMarketAnalysis():
         if all([os.path.exists(os.path.join(storage_dir, 'spring_centers.npy')) for storage_dir in self.storage_dirs]):
             self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
             self.spring_centers = self.spring_centers_list[-1]
+            fprint(f'Shape of final spring_centers determined to be: {self.spring_centers.shape}')
+
             
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
@@ -553,9 +555,12 @@ class FultonMarketAnalysis():
     
                     # Get frame, state, state energies
                     energies = self.energies[frame, state1, :]
+
+                    # Get spring_centers
+                    
     
                     # Correct
-                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[:,sele]*10, self.temperatures, spring_constant)
+                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[,sele]*10, self.temperatures, spring_constant)
     
         self.energies = corrected_energies.copy()
         del corrected_energies
