@@ -14,8 +14,13 @@ from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
+from openmm import unit
+from FultonMarketAnalysisUtils import *
 
+spring_constant_unit = (unit.joule)/(unit.angstrom*unit.angstrom*unit.mole)
+gas_constant_unit = (unit.joule)/(unit.mole*unit.kelvin)
 fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
+get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
@@ -27,7 +32,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None, remove_harmonic: bool=False):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -40,7 +45,7 @@ class FultonMarketAnalysis():
         assert os.path.isdir(self.stor_dir)
         fprint(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
-        self.pdb = pdb
+        self.pdb = pdb 
         self.top = md.load_pdb(self.pdb).topology
         if resids is not None:
             self.resids = [[self.top.residue(i).resSeq for i in range(self.top.n_residues)].index(resid) for resid in resids] # convert to mdtraj resids
@@ -53,12 +58,13 @@ class FultonMarketAnalysis():
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        if os.path.exists(all([os.path.join(storage_dir, 'spring_centers.npy') for storage_dir in self.storage_dirs])):
+        if all([os.path.exists(os.path.join(storage_dir, 'spring_centers.npy')) for storage_dir in self.storage_dirs]):
             self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
             self.spring_centers = self.spring_centers_list[-1]
             
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
+        self.reduced_potentials = [e / get_kT(temps) for (e, temps) in zip(self.energies, self.temperatures_list)]
 
         # Compute positions/box_vectors map 
         self._get_postions_map()
@@ -68,6 +74,10 @@ class FultonMarketAnalysis():
         self.scheduling = scheduling
         self._backfill()
         fprint(f'Shape of final energies determined to be: {self.energies.shape}')
+
+        # Remove harmonic from energies if specified
+        if remove_harmonic:
+            self._remove_harmonic()
 
         
         
@@ -116,9 +126,9 @@ class FultonMarketAnalysis():
         if post_equil:
             if not hasattr(self, 't0'):
                 self._determine_equilibration()
-            state_energies = np.array([self.get_state_energies(state_indice=state_no)[self.t0:] for state_no in range(self.energies.shape[1])]).T
+            state_energies = np.array([self.get_state_energies(state_index=state_no)[self.t0:] for state_no in range(self.energies.shape[1])]).T
         else:
-            state_energies = np.array([self.get_state_energies(state_indice=state_no) for state_no in range(self.energies.shape[1])]).T
+            state_energies = np.array([self.get_state_energies(state_index=state_no) for state_no in range(self.energies.shape[1])]).T
 
         
         fig, ax = plt.subplots(figsize=figsize)
@@ -139,27 +149,28 @@ class FultonMarketAnalysis():
         self.equilibration_method = equilibration_method
         
         #Ensure equilibration has been detected
-        self._determine_equilibration()
+        if not hasattr(self, 't0'):
+            self._determine_equilibration()
         
         # Create map to match shape of weights
   
         # Get MBAR weights
         if self.equilibration_method == 'energy':
-            u_kln = self.energies[self.t0:][self.uncorrelated_indices].T
-            N_k = [len(self.uncorrelated_indices) for i in range(self.energies.shape[1])]
-            self.flat_inds = np.array([[state, ind] for ind in self.uncorrelated_indices for state in range(self.energies.shape[1])])
+            u_kln = self.reduced_potentials[self.t0:][self.uncorrelated_indices].T
+            N_k = [len(self.uncorrelated_indices) for i in range(self.reduced_potentials.shape[1])]
+            self.flat_inds = np.array([[state, ind] for ind in self.uncorrelated_indices for state in range(self.reduced_potentials.shape[1])])
 
         else:
-            self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
-            u_kln = self.energies[self.t0:].T
-            N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
+            self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.reduced_potentials.shape[0]) for state in range(self.reduced_potentials.shape[1])])
+            u_kln = self.reduced_potentials[self.t0:].T
+            N_k = [self.reduced_potentials[self.t0:].shape[0] for i in range(self.reduced_potentials.shape[1])]
         self.resampled_inds, self.weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, specify_state=0)
         
         
 
     def plot_weights(self, state_no: int=0, figsize: tuple=(4,4)):
         # Reshape weights
-        self.weights = self.weights.copy().reshape(self.temperatures.shape[0], self.energies.shape[0] - self.t0, self.temperatures.shape[0])[:,:,state_no].T
+        self.weights = self.weights.copy().reshape(self.temperatures.shape[0], self.reduced_potentials.shape[0] - self.t0, self.temperatures.shape[0])[:,:,state_no].T
         
         # Get sum of weights by state
         sum_weights = self.weights.sum(axis=0)
@@ -184,7 +195,8 @@ class FultonMarketAnalysis():
             self.importance_resampling()
             
         # Load pos, box_vec
-        self._load_positions_box_vecs()
+        if not hasattr(self, 'positions'):
+            self._load_positions_box_vecs()
         
         # Create mdtraj obj
         traj = md.load_pdb(self.pdb)
@@ -207,12 +219,17 @@ class FultonMarketAnalysis():
         
         # Correct periodic issues
         traj = md.load(dcd_out, top=self.pdb)
+        prot_sele = self.top.select('protein')
+        traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
         traj.image_molecules()
         traj[0].save_pdb(pdb_out)
         traj.save_dcd(dcd_out)
+
+        fprint(f'{traj.n_frames} frames written to {pdb_out}, {dcd_out}')
         
         if return_traj:
             return traj
+
        
     
 
@@ -229,7 +246,7 @@ class FultonMarketAnalysis():
         traj = md.load_pdb(self.pdb)
         
         # Use the map to find the resampled configurations
-        inds = np.arange(0, self.energies.shape[0], stride)
+        inds = np.arange(0, self.reduced_potentials.shape[0], stride)
         pos = np.empty((len(inds), self.positions[0].shape[2], 3))
         box_vec = np.empty((len(inds), 3, 3))
         for i, ind in enumerate(inds):
@@ -371,20 +388,20 @@ class FultonMarketAnalysis():
             
             #Create an array for this simulations energies, in the final simulation's shape on axis 1, 2
             sim_energies = np.zeros((self.energies[sim_no].shape[0], self.temperatures.shape[0], self.temperatures.shape[0]))
-            sim_reduced_potentials = np.zeros((self.energies[sim_no].shape[0], self.temperatures.shape[0], self.temperatures.shape[0]))
+            sim_reduced_potentials = np.zeros((self.reduced_potentials[sim_no].shape[0], self.temperatures.shape[0], self.temperatures.shape[0]))
             sim_map = np.zeros((self.map[sim_no].shape[0], self.temperatures.shape[0], 3))
 
             #Fill this array with the values that exist
             for i, ind in enumerate(interpolation_map[sim_no]):
                 sim_energies[:, ind, interpolation_map[sim_no]] = self.energies[sim_no][:, i, :]
-                sim_reduced_potentials[:, ind, interpolation_map[sim_no]] = self.energies[sim_no][:, i, :]
+                sim_reduced_potentials[:, ind, interpolation_map[sim_no]] = self.reduced_potentials[sim_no][:, i, :]
                 sim_map[:,ind] = self.map[sim_no][:,i]
 
             #Fill in rows and columns 
             for state_no in sim_interpolate_inds:
 
                 # Get state-specific objects to resample from
-                filled_reduced_potentials = np.concatenate([self.energies[sim_no] for sim_no in filled_sim_inds])
+                filled_reduced_potentials = np.concatenate([self.reduced_potentials[sim_no] for sim_no in filled_sim_inds])
                 filled_energies = np.concatenate([self.energies[sim_no] for sim_no in filled_sim_inds])
                 filled_map = np.concatenate([self.map[sim_no] for sim_no in filled_sim_inds])
                 
@@ -413,8 +430,8 @@ class FultonMarketAnalysis():
 
         # Concatenate
         self.energies = np.concatenate(backfilled_energies, axis=0)
-        self.energies = np.concatenate(backfilled_potentials, axis=0)
-        self.map = np.concatenate(backfilled_map, axis=0)
+        self.reduced_potentials = np.concatenate(backfilled_potentials, axis=0)
+        self.map = np.concatenate(backfilled_map, axis=0).astype(int)
         self.n_frames = self.energies.shape[0]
     
     
@@ -433,7 +450,7 @@ class FultonMarketAnalysis():
             
             self.average_energies = np.zeros((self.energies.shape[0], self.energies.shape[1]))
             for state_no in range(self.energies.shape[1]):
-                self.average_energies[:,state_no] = self.get_state_energies(state_indice=state_no)
+                self.average_energies[:,state_no] = self.get_state_energies(state_index=state_no)
             self.average_energies = self.average_energies.mean(axis=1)
 
             self.t0, self.g, Neff_max = timeseries.detect_equilibration(self.average_energies) # compute indices of uncorrelated timeseries
@@ -463,12 +480,9 @@ class FultonMarketAnalysis():
         else:
             print('equilibration_method must be either PCA or energy (or None if youre zesty)')
 
-        fprint(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns')
+        fprint(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {self.equilibration_method}')
 
-            
-            
-
-        
+    
 
     def get_PCA(self, state_no: int=0, stride: int=10, n_components: int=2, explained_variance_threshold: float=None):
         """
@@ -504,82 +518,46 @@ class FultonMarketAnalysis():
             self.positions.append(np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:])
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
 
-
     
+    
+    def _remove_harmonic(self, spring_constant=83.65):
 
+        fprint('Removing harmonic restraint from energies...')
+        # Equilibration if necessary
+        if not hasattr(self, 't0'):
+            self.equilibration_method = 'energy'
+            self._determine_equilibration()
 
-
+        # Load positions
+        if not hasattr(self, 'positions'):
+            self._load_positions_box_vecs()
         
-
-
-@staticmethod
-def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, reshape_weights: tuple=None, specify_state: int=0, return_inds: bool=False, return_weights: bool=False):
-
-    # Get MBAR weights
-    weights = compute_MBAR_weights(u_kln, N_k)
-
-    # Reshape weights if specified
-    if reshape_weights is not None:
-        weights = weights.reshape(reshape_weights)
-        
-    # Get probabilities
-    if len(weights.shape) == 1:
-        probs = weights.copy()
-    else:
-        probs = weights[:, specify_state]
-
-
-    # Resample
-    resampled_inds = np.random.choice(range(len(probs)), size=size, replace=True, p=probs)
-    resampled_objs = []
-    for obj in objs:
-        resampled_objs.append(np.array([obj[resampled_ind] for resampled_ind in resampled_inds]))
-
-    # Return resampled objects
-    return_list = []
-    if len(objs) == 1:
-        return_list.append(resampled_objs[0])
-    elif len(objs) > 1:
-        for resampled_obj in resampled_objs:
-            return_list.append(resampled_obj)
-
-    if return_inds:
-        return_list.append(resampled_inds)
-    if return_weights:
-        return_list.append(weights)
-
-    return return_list
-
-
-@staticmethod
-def compute_MBAR_weights(u_kln, N_k):
-    """
-    """
-
-    mbar = MBAR(u_kln, N_k, initialize='BAR')
-
-    return mbar.weights()
-
-
-@staticmethod
-# PCA
-def detect_PC_equil(pc, reduced_cartesian):
-    t0, _, _ = detect_equilibration(reduced_cartesian[:,pc])
-
-    return t0*10
-
-
-
-
-
-
-
-
-
-
     
-
+        # Get selection for spring centers
+        if self.resids is not None:
+            sele = self.top.select(f'protein and resid {" ".join([str(resid) for resid in self.resids])}')
     
+        # Iterate through frames
+        corrected_energies = np.empty(self.energies.shape)
+        for frame in range(self.t0, corrected_energies.shape[0]):
+    
+            # Iterate through primary states
+            for state1 in range(corrected_energies.shape[1]):
+    
+                # Get frame, state positions
+                sim_no, sim_iter, sim_rep_ind = self.map[frame, state1]
+                pos = np.array([self.positions[sim_no][sim_iter][sim_rep_ind][sele] for i in range(len(self.temperatures))]) 
+    
+                # Iterate through secondary states
+                for state2, temp2 in enumerate(self.temperatures):
+    
+                    # Get frame, state, state energies
+                    energies = self.energies[frame, state1, :]
+    
+                    # Correct
+                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, self.spring_centers[:,sele]*10, self.temperatures, spring_constant)
+    
+        self.energies = corrected_energies.copy()
+        del corrected_energies
 
-
-
+        fprint(f'Harmonic restrain removed from energies with shape {self.energies.shape}')

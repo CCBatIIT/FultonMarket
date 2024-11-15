@@ -72,12 +72,6 @@ class Randolph():
         self.current_cycle = 0
         while self.current_cycle <= self.n_cycles:
 
-            # Minimize 
-            if self.sim_no == 0 and self.current_cycle == 0:
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing...', flush=True)
-                self.simulation.minimize() 
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Minimizing finished.', flush=True)
-
             # Advance 1 cycle
             self._run_cycle()
             
@@ -266,7 +260,9 @@ class Randolph():
 
         # Convert to quantities    
         init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
-        init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=np.array(init_box_vectors).reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
+        print(init_box_vectors)
+        init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_box_vectors.reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
+
         if init_velocities is not None:
             init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
 
