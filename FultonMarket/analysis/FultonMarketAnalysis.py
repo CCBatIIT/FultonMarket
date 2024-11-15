@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
-from pymbar.timeseries import detect_equilibration4
+from pymbar.timeseries import detect_equilibration
 
 fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
