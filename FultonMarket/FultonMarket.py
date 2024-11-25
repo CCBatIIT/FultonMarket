@@ -7,8 +7,8 @@ import netCDF4 as nc
 import os, sys, faulthandler
 
 #Custom Imports
-from .FultonMarketUtils import *
-from .Randolph import Randolph
+from FultonMarketUtils import *
+from Randolph import Randolph
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
