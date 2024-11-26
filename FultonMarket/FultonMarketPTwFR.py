@@ -146,6 +146,8 @@ class FultonMarketPTwFR(FultonMarket):
             printf('Setting initial positions with the "Velocity" method')
             self.sampler_states = build_sampler_states(self, self.init_positions, self.init_box_vectors, self.init_velocities)
 
+        print('TEST1', len(self.sampler_states))
+
 
     
     def _build_thermodynamic_states(self):
@@ -156,7 +158,7 @@ class FultonMarketPTwFR(FultonMarket):
     def _save_sub_simulation(self):
         
         # Save temperatures
-        self.temperatures, self.spring_centers = self.simulation.save_simulation(self.save_dir)
+        self.n_replicates, self.temperatures, self.spring_centers = self.simulation.save_simulation(self.save_dir)
 
 
     

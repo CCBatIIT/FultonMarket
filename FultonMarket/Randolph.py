@@ -16,6 +16,7 @@ from typing import List
 from datetime import datetime
 import mdtraj as md
 from copy import deepcopy
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from FultonMarketUtils import *
 
 
@@ -113,9 +114,9 @@ class Randolph():
             pass    
         
         if self.spring_centers is not None:    
-            return [t*unit.kelvin for t in temperatures], self.spring_centers
+            return len(temperatures), [t*unit.kelvin for t in temperatures], self.spring_centers
         else:
-            return [t*unit.kelvin for t in temperatures]
+            return len(temperatures), [t*unit.kelvin for t in temperatures]
         
 
     
@@ -175,6 +176,7 @@ class Randolph():
         self.reporter = MultiStateReporter(self.output_ncdf, checkpoint_interval=10, analysis_particle_indices=atom_inds)
         
         # Create simulation obj    
+        print('TEST2', len(self.sampler_states))
         if self.spring_centers is not None:
             self.simulation.create(thermodynamic_states=self.thermodynamic_states, sampler_states=self.sampler_states, storage=self.reporter)
         else:
