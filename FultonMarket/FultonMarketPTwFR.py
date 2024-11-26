@@ -160,7 +160,7 @@ class FultonMarketPTwFR(FultonMarket):
     def _save_sub_simulation(self):
         
         # Save temperatures
-        self.temperatures, self.spring_centers = self.simulation.save_simulation(self.save_dir)
+        self.n_replicates, self.temperatures, self.spring_centers = self.simulation.save_simulation(self.save_dir)
 
 
     

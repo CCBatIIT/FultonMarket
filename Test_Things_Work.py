@@ -46,7 +46,7 @@ if response == 'y':
                        T_min=310,
                        T_max=320)
     run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.1,
-                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
+                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.35)
     market = FultonMarket(**init_kwargs)
     market.run(**run_kwargs)
 
@@ -72,7 +72,7 @@ if response == 'y':
                        restrained_atoms_dsl=generate_selection_string(cb2_intracellular_inds),
                        T_min=310, T_max=315)
     run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.01,
-                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
+                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.35)
     market = FultonMarketPTwFR(**init_kwargs)
     market.run(**run_kwargs)
 
