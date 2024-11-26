@@ -14,6 +14,7 @@ from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from FultonMarketAnalysisUtils import *
 
 fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
