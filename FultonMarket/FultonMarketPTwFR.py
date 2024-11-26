@@ -146,8 +146,6 @@ class FultonMarketPTwFR(FultonMarket):
             printf('Setting initial positions with the "Velocity" method')
             self.sampler_states = build_sampler_states(self, self.init_positions, self.init_box_vectors, self.init_velocities)
 
-        print('TEST1', len(self.sampler_states))
-
 
     
     def _build_thermodynamic_states(self):
