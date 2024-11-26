@@ -6,13 +6,16 @@ import numpy as np
 import netCDF4 as nc
 import os, sys, faulthandler
 
-#Custom Imports
-from FultonMarketUtils import *
-from Randolph import Randolph
+#Custom Imports (Try Relative First)
+try:
+    from .FultonMarketUtils import *
+    from .Randolph import Randolph
+except:
+    from FultonMarketUtils import *
+    from Randolph import Randolph
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
-sys.path.append('../MotorRow')
 faulthandler.enable()
 
 

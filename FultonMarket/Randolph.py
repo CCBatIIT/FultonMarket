@@ -1,3 +1,8 @@
+#Packages
+import numpy as np
+import netCDF4 as nc
+import mdtraj as md
+import tempfile, os, sys
 from openmm import *
 from openmm.app import *
 from openmmtools import cache
@@ -6,19 +11,21 @@ from openmmtools.utils.utils import TrackedQuantity
 from openmmtools import states, mcmc, multistate
 from openmmtools.states import SamplerState, ThermodynamicState
 from openmmtools.multistate import ParallelTemperingSampler, ReplicaExchangeSampler, MultiStateReporter
-import tempfile
-import os, sys
-sys.path.append('../MotorRow')
-import numpy as np
-np.seterr(divide='ignore', invalid='ignore')
-import netCDF4 as nc
 from typing import List
 from datetime import datetime
-import mdtraj as md
 from copy import deepcopy
-from FultonMarketUtils import *
+
+#Custom
+try:
+    from .FultonMarketUtils import *
+except:
+    from FultonMarketUtils import *
+
+#Set Things
+np.seterr(divide='ignore', invalid='ignore')
 
 
+#Classes
 class Randolph():
     """
     """

@@ -10,10 +10,16 @@ import numpy as np
 from typing import List
 from copy import deepcopy
 
-#Custom Imports
-from .FultonMarketUtils import *
-from .FultonMarketPTwFR import FultonMarketPTwFR
-from .analysis.FultonMarketAnalysis import FultonMarketAnalysis
+#Custom Imports (Try Relative First)
+try:
+    from .FultonMarketUtils import *
+    from .FultonMarketPTwFR import FultonMarketPTwFR
+    from .analysis.FultonMarketAnalysis import FultonMarketAnalysis
+except:
+    from FultonMarketUtils import *
+    from FultonMarketPTwFR import FultonMarketPTwFR
+    from analysis.FultonMarketAnalysis import FultonMarketAnalysis
+
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')

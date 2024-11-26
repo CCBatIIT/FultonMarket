@@ -6,8 +6,12 @@ import os, faulthandler
 import numpy as np
 
 #Custom Imports
-from .FultonMarketUtils import *
-from .FultonMarket import FultonMarket
+try:
+    from .FultonMarketUtils import *
+    from .FultonMarket import FultonMarket
+except:
+    from FultonMarketUtils import *
+    from FultonMarket import FultonMarket
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')

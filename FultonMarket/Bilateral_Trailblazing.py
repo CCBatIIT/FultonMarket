@@ -1,13 +1,15 @@
 import os, sys
-sys.path.append('FultonMarket')
 from openmm import *
 import numpy as np
 from openmm.app import *
 import openmm.unit as unit
-from .FultonMarketUtils import *
 from datetime import datetime
 import mdtraj as md
 
+try:
+    from .FultonMarketUtils import *
+except:
+    from FultonMarketUtils import *
 
 #83.68 Joule/(mol * ang^2) = 20 cal/(mol * ang^2)
 

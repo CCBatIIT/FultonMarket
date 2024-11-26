@@ -1,13 +1,3 @@
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-#WORK IN PROGRESS
-
 # USAGE python Test_Things_Work.py
 # Sequentially test each type of Fulton Market Simulation
 # Skipping one does not take away a chance to test the next
