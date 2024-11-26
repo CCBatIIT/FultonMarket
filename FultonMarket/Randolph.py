@@ -114,9 +114,9 @@ class Randolph():
             pass    
         
         if self.spring_centers is not None:    
-            return [t*unit.kelvin for t in temperatures], self.spring_centers
+            return len(temperatures), [t*unit.kelvin for t in temperatures], self.spring_centers
         else:
-            return [t*unit.kelvin for t in temperatures]
+            return len(temperatures), [t*unit.kelvin for t in temperatures]
         
 
     
