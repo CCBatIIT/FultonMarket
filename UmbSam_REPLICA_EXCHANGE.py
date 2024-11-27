@@ -55,9 +55,6 @@ selection_string = selection_string[:-4] + ')'
 # Second Spring Center
 input_pdb2 = os.path.join(input_dir, sys.argv[7] + '.pdb')
 
-
-
-
 # Run rep exchange
 market = FultonMarket(input_pdb=[input_pdb1, input_pdb2], input_system=input_sys, input_state=None)
 

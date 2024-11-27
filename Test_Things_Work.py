@@ -3,6 +3,10 @@
 # Sequentially test each type of Fulton Market Simulation
 # Skipping one does not take away a chance to test the next
 
+import os, sys, glob
+import openmm.unit as unit
+print(os.getcwd())
+
 #Test all imports for custom packages
 from FultonMarket.FultonMarketUtils import *
 from FultonMarket.Randolph import Randolph
@@ -11,10 +15,6 @@ from FultonMarket.FultonMarketPTwFR import FultonMarketPTwFR
 from FultonMarket.FultonMarketUS import FultonMarketUS
 from FultonMarket.Unilateral_Trailblazing import Unilateral_Umbrella_Trailblazer
 from FultonMarket.Bilateral_Trailblazing import Bilateral_Umbrella_Trailblazer
-
-#Other imports
-import os, sys, glob
-import openmm.unit as unit
 
 def delete_all_files_in_dir(the_dir):
     files_wildcard = os.path.join(the_dir, '*')
