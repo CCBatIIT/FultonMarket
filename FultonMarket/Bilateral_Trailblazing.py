@@ -168,7 +168,7 @@ class Bilateral_Umbrella_Trailblazer():
             printf(f'Saved final positions to {self.final_pos_fns[iden]}')
     
     
-    def run_leg(self, leg_iden, ts=2*unit.femtosecond, n_frames_per_replicate=25, time_btw_frames=1*unit.picosecond): #REMOVE 25 -> 2500
+    def run_leg(self, leg_iden, ts=2*unit.femtosecond, n_frames_per_replicate=2500, time_btw_frames=1*unit.picosecond):
         """
         leg iden must be in ["A", "B"]
         """

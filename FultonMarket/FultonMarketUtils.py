@@ -150,7 +150,6 @@ def build_sampler_states(self, pos: np.array, box_vec: np.array, velos: np.array
         return [SamplerState(positions=pos[i], box_vectors=box_vec[i]) for i in range(self.n_replicates)]
 
 
-
 def get_some_objects(pdb_file, xml_file):
     pdb = PDBFile(pdb_file)
     with open(xml_file, 'r') as f:

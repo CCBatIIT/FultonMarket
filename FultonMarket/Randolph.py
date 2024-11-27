@@ -182,7 +182,6 @@ class Randolph():
         self.reporter = MultiStateReporter(self.output_ncdf, checkpoint_interval=10, analysis_particle_indices=atom_inds)
         
         # Create simulation obj    
-        print('TEST2', len(self.sampler_states))
         if self.spring_centers is not None:
             self.simulation.create(thermodynamic_states=self.thermodynamic_states, sampler_states=self.sampler_states, storage=self.reporter)
         else:

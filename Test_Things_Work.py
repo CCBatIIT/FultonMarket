@@ -16,8 +16,6 @@ from FultonMarket.Bilateral_Trailblazing import Bilateral_Umbrella_Trailblazer
 import os, sys, glob
 import openmm.unit as unit
 
-
-
 def delete_all_files_in_dir(the_dir):
     files_wildcard = os.path.join(the_dir, '*')
     for f in glob.glob(files_wildcard):
@@ -147,5 +145,3 @@ if response == 'y':
     market = FultonMarketUS(**init_kwargs)
     market.run(**run_kwargs)
 
-
-    
