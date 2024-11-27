@@ -13,7 +13,6 @@ from Randolph import Randolph
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
-sys.path.append('../MotorRow')
 faulthandler.enable()
 
 
