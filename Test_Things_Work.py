@@ -1,4 +1,5 @@
-# USAGE python Test_Things_Work.py
+# USAGE python Test_Things_Work.py yes2all
+# if yes2all is True will behave as if all responses are 'y'
 # Sequentially test each type of Fulton Market Simulation
 # Skipping one does not take away a chance to test the next
 
@@ -22,19 +23,32 @@ def delete_all_files_in_dir(the_dir):
     for f in glob.glob(files_wildcard):
         os.system(f'rm -r {f}')
 
+if len(sys.argv) == 1:
+    yes2all = False
+else:
+    yes2all = bool(sys.argv[1])
+
+
+def response_func(prompt):
+    if yes2all:
+        return 'y'
+    else:
+        return input(prompt + ' y/n \n')
+
 cb2_intracellular_inds = np.array([49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311])
 cb2_intracellular_inds = cb2_intracellular_inds - 23 # Zero indexed resids
 
 
 #Fulton Market Test
-response = input('Proceed with testing FultonMarket? y/n \n')
+response = response_func('Proceed with testing FultonMarket?')
+
 if response == 'y':
     #Setup Block
     test_output_dir = './Test_Cases/FM_test/'
     if not os.path.isdir(test_output_dir):
         os.mkdir(test_output_dir)
     else:
-        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
+        response = response_func(f'Should delete the contents of {test_output_dir}?')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
     
@@ -52,14 +66,15 @@ if response == 'y':
 
 
 #PTwFR Test
-response = input('Proceed with testing FultonMarketPtwFR? y/n \n')
+response = response_func('Proceed with testing FultonMarketPtwFR?')
+
 if response == 'y':
     #Setup Block
     test_output_dir = './Test_Cases/FMPTwFR_test/'
     if not os.path.isdir(test_output_dir):
         os.mkdir(test_output_dir)
     else:
-        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
+        response = response_func(f'Should delete the contents of {test_output_dir}?')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
 
@@ -78,14 +93,14 @@ if response == 'y':
 
 
 #Unilateral Trailblaze Test
-response = input('Proceed with testing Unilateral Trailblzaing? y/n \n')
+response = response_func('Proceed with testing Unilateral Trailblzaing?')
 if response == 'y':
     #Setup Block
     test_output_dir = './Test_Cases/UniLat_test/'
     if not os.path.isdir(test_output_dir):
         os.mkdir(test_output_dir)
     else:
-        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
+        response = response_func(f'Should delete the contents of {test_output_dir}?')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
     
@@ -110,7 +125,7 @@ if response == 'y':
 
 
 #US Test
-response = input('Proceed with testing FultonMarketUS? y/n \n')
+response = response_func('Proceed with testing FultonMarketUS?')
 if response == 'y':
     
     #Setup Block
@@ -118,7 +133,7 @@ if response == 'y':
     if not os.path.isdir(test_output_dir):
         os.mkdir(test_output_dir)
     else:
-        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
+        response = response_func(f'Should delete the contents of {test_output_dir}?')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
             
