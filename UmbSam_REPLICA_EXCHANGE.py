@@ -1,63 +1,63 @@
 """
-USAGE: python REPLICA_EXCHANGE.py $INPUT_DIR $NAME $OUTPUT_DIR $REPLICATE $SIM_TIME $NUM_OF_REPLICA $SECOND_SPRING_CENTER_PDB 
+USAGE: python RUN_FULTONMARKETUS.py $PDB/XML_INPUT_DIR $DCD_INPUT_DIR $NAME1 $NAME2 $OUTPUT_DIR $SIM_TIME $NUM_OF_REPLICA
 
 PARAMETERS:
 -----------
+    Required
     INPUT_DIR: absolute path to the directory with input xml and pdb
-    NAME: pdb file before the extension
+    DCD_INPUT_DIR: absolute path to the directory containing the trailblazing final positions
+    NAME1 & NAME2: file name before extensions for the two centroids
     OUTPUT_DIR: absolute path to the directory where a subdirectory with output will be stored
-    REPLICATE: Replicate number of simulation. THIS MUST BE SPECIFIED to avoid accidental overwritting
-    SIM_TIME: Total simulation aggregate time. Default is 500 ns. 
+
+    Optional
+    SIM_TIME: Total simulation aggregate time. Default is 500 ns.
     NUM_OF_REPLICA: number of replica to start with between T_min (300 K) and T_max (360 K)
 """
 
 
 import os, sys, math
-sys.path.append('FultonMarket')
-from FultonMarket import FultonMarket
+import numpy as np
+from FultonMarket.FultonMarketUS import FultonMarketUS
 
 # Inputs
 input_dir = sys.argv[1]
-name = sys.argv[2]
-input_sys = os.path.join(input_dir, name+'_sys.xml')
-input_state = os.path.join(input_dir, name+'_state.xml')
-input_pdb = os.path.join(input_dir, name+'.pdb')
+dcd_dir = sys.argv[2]
+name1 = sys.argv[3]
+name2 = sys.argv[4]
+input_sys = os.path.join(input_dir, name1+'_sys.xml')
+input_pdb = [os.path.join(input_dir, name1+'.pdb'), os.path.join(input_dir, name2+'.pdb')]
+input_dcd = os.path.join(dcd_dir, 'final_pos.dcd')
 print(input_pdb)
+print(input_dcd)
 
 # Outputs
-rep = int(sys.argv[4])
-output_dir = os.path.join(sys.argv[3], name + '_' + str(rep))
+output_dir = os.path.join(sys.argv[5], name1 + '_' + name2)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 assert os.path.exists(output_dir)
 
 # Simulation parameters
 try:
-    total_sim_time = int(sys.argv[5])
+    total_sim_time = int(sys.argv[6])
 except:
     total_sim_time = 500
 
-sub_sim_length = 50
-
 try:
-    n_replica = int(sys.argv[6])
+    n_replicates = int(sys.argv[7])
 except:
-    n_replica = 90
+    n_replicates = 25
 
 # Restraints
 selection_string = 'protein and ('
-intracellular_inds = [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349]
-intracellular_inds = [ind - 67 for ind in intracellular_inds]
-for ind in intracellular_inds:
+cb2_intracellular_inds = np.array([49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311])
+cb2_intracellular_inds -= 23
+for ind in cb2_intracellular_inds:
     selection_string += f'(resid {ind}) or '
 selection_string = selection_string[:-4] + ')'
 
-# Second Spring Center
-input_pdb2 = os.path.join(input_dir, sys.argv[7] + '.pdb')
-
 # Run rep exchange
-market = FultonMarket(input_pdb=[input_pdb1, input_pdb2], input_system=input_sys, input_state=None)
+market = FultonMarketUS(input_pdb=input_pdb, input_system=input_sys, init_positions_dcd=input_dcd, n_replicates=n_replicates, restrained_atoms_dsl=selection_string)
 
 # RUN
-market.run(total_sim_time=total_sim_time, iteration_length=0.01, n_replicates=n_replica, sim_length=sub_sim_length,
-	   output_dir=output_dir, restrained_atoms_dsl=selection_string, spring_centers2_pdb=spring_center2_pdb, init_positions_dcd=sys.argv[8])
+market.run(total_sim_time=total_sim_time, iter_length=0.001, sim_length=5.0, output_dir=output_dir)
+

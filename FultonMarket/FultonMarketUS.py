@@ -132,8 +132,10 @@ class FultonMarketUS(FultonMarketPTwFR):
         printf(f"Read {init_traj.n_frames} number of states from trailblazing")
 
         # Get pos, box_vectors
-        self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.xyz, mask=False, fill_value=1e+20), unit=unit.nanometer))
-        self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
+        self.init_positions = [init_traj.openmm_positions(i) for i in range(init_traj.n_frames)]
+        self.init_box_vectors = [init_traj.openmm_boxes(i) for i in range(init_traj.n_frames)]
+        #self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.xyz, mask=False, fill_value=1e+20), unit=unit.nanometer))
+        #self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_traj.unitcell_vectors, mask=False, fill_value=1e+20), unit=unit.nanometer))
     
     
     def _set_init_positions(self):
@@ -189,20 +191,22 @@ class FultonMarketUS(FultonMarketPTwFR):
     def _resample_init_positions(self):
         """
         """
+        printf(f"Begin Resampling {len(self.temperatures)} positions...")
         #Load an analyzer
         input_dir = os.path.abspath(os.path.join(self.save_dir, '..'))
         #The analyzer will handle the loading of energies and any backfilling
-        analyzer = FultonMarketAnalysis(input_dir, self.input_pdb[0])
+        analyzer = FultonMarketAnalysis(input_dir, self.input_pdb[0], scheduling='Spring Centers')
         #Set the new intial positions and box vecs by resampling
         new_init_positions = []
         new_init_box_vecs = []
         for i in range(len(self.temperatures)):
             analyzer.importance_resampling(n_samples=1, equilibration_method='None', specify_state=i)
             #sets analyzer.resampled_inds and analyzer.weights
-            traj = analyzer.write_resampled_traj('temp.pdb', 'temp.dcd', return_traj=True)
+            temp_pdb_fn, temp_dcd_fn = os.path.join(self.output_dir, 'temp.pdb'), os.path.join(self.output_dir, 'temp.dcd')
+            traj = analyzer.write_resampled_traj(temp_pdb_fn, temp_dcd_fn, return_traj=True)
             #clean up from that line
-            os.remove('temp.pdb')
-            os.remove('temp.dcd')
+            os.remove(temp_pdb_fn)
+            os.remove(temp_dcd_fn)
             #Add positions and box vectors to the list
             new_init_positions.append(traj.xyz[0])
             new_init_box_vecs.append(traj.unitcell_vectors[0])
@@ -210,6 +214,7 @@ class FultonMarketUS(FultonMarketPTwFR):
         self.init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=new_init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
         self.init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=new_init_box_vecs, mask=False, fill_value=1e+20), unit=unit.nanometer))
         self.init_velocities = None
+        printf(f"Successfully Resampled {len(self.temperatures)} positions.")
 
 
     

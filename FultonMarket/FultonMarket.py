@@ -219,6 +219,7 @@ class FultonMarket():
                 os.remove(self.checkpoint_ncdf)
 
             # Update counter
+            del self.simulation
             self.sim_no += 1
 
 
