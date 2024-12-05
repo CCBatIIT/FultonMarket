@@ -112,7 +112,7 @@ def build_thermodynamic_states(self):
     assert len(self.temperatures) == len(self.spring_centers)
 
     # Add restraints
-    restrain_atoms(self) #REMOVE
+    restrain_atoms(self)
 
 
     
