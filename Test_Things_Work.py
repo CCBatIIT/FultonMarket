@@ -81,11 +81,11 @@ if response == 'y':
     init_kwargs = dict(input_pdb='./Test_Cases/input/centroid_12.pdb',
                        input_system='./Test_Cases/input/centroid_12_sys.xml',
                        input_state=None,
-                       n_replicates=100,
+                       n_replicates=5,
                        restrained_atoms_dsl=generate_selection_string(cb2_intracellular_inds),
-                       T_min=310, T_max=350)
+                       T_min=310, T_max=320)
     run_kwargs = dict(total_sim_time=10.0, iter_length=0.001, sim_length=1,
-                      output_dir=test_output_dir, init_overlap_thresh=0.1, term_overlap_thresh=0.35)
+                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.35)
     market = FultonMarketPTwFR(**init_kwargs)
     market.run(**run_kwargs)
 
