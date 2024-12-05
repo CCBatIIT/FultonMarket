@@ -1,0 +1,21 @@
+#!/bin/sh
+#SBATCH --job-name="MDUmbSam"
+#SBATCH --output="MDUmbSam.%j.%N.out"
+#SBATCH --partition=gpu-shared
+#SBATCH --gpus=1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=5
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=jdepaoloboisvert@hawk.iit.edu
+#SBATCH --account=iit122
+#SBATCH -t 24:00:00
+
+source ~/.bashrc
+
+conda activate replica
+
+cd $SLURM_SUBMIT_DIR
+
+echo EQUIL JOB for $2 $3
+
+python UmbSam_straight_MD.py $1 $2 $3 $4 $5 $6
