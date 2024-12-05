@@ -30,7 +30,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None, upper_limit: int=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -56,11 +56,6 @@ class FultonMarketAnalysis():
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        if all([os.path.exists(os.path.join(storage_dir, 'spring_centers.npy')) for storage_dir in self.storage_dirs]):
-            self.spring_centers_list = [np.load(os.path.join(storage_dir, 'spring_centers.npy'), mmap_mode='r') for storage_dir in self.storage_dirs]
-            self.spring_centers = self.spring_centers_list[-1] 
-            fprint(f'Shape of final spring_centers determined to be: {self.spring_centers.shape}')
-
             
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
@@ -72,6 +67,12 @@ class FultonMarketAnalysis():
         # Determine if interpolation occured and resample to fill in missing states
         self.scheduling = scheduling
         self._backfill()
+
+        # Apply upper limit, if specified
+        if upper_limit is not None:
+            self.energies = self.energies[:upper_limit+1]
+            self.map = self.map[:upper_limit+1]
+        
         fprint(f'Shape of final energies determined to be: {self.energies.shape}')
 
 
@@ -250,8 +251,6 @@ class FultonMarketAnalysis():
             
             # Use map
             sim_no, sim_iter, sim_rep_ind = self.map[ind, state_no].astype(int)
-
-            print('TEST2', self.positions[sim_no][sim_iter][sim_rep_ind].shape)
             pos[i] = np.array(self.positions[sim_no][sim_iter][sim_rep_ind])
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
         
