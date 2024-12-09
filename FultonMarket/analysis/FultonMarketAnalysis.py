@@ -72,6 +72,7 @@ class FultonMarketAnalysis():
         if upper_limit is not None:
             self.energies = self.energies[:upper_limit+1]
             self.map = self.map[:upper_limit+1]
+            self.upper_limit = upper_limit
         
         fprint(f'Shape of final energies determined to be: {self.energies.shape}')
 
@@ -486,6 +487,8 @@ class FultonMarketAnalysis():
         """
         # Get state trajectory
         traj = self.state_trajectory(state_no, stride)
+        if hasattr(self, 'upper_limit'):
+            traj = traj[:self.upper_limit+1]
 
         # Get protein or resids of interest
         if self.resids is not None:
