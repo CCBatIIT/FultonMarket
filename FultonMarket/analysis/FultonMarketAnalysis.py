@@ -258,7 +258,7 @@ class FultonMarketAnalysis():
         # Apply pos, box_vec to mdtraj obj
         traj.xyz = pos.copy()
         traj.unitcell_vectors = box_vec.copy()
-        temp = 'temp_{np.random.default_rng()}'
+        temp = 'temp_{np.random.randint(0)}'
         traj.save_dcd(f'{temp}.dcd')
         traj[0].save_pdb(f'{temp}.pdb')
         
