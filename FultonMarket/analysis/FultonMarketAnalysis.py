@@ -258,11 +258,14 @@ class FultonMarketAnalysis():
         # Apply pos, box_vec to mdtraj obj
         traj.xyz = pos.copy()
         traj.unitcell_vectors = box_vec.copy()
-        traj.save_dcd('temp.dcd')
-        traj[0].save_pdb('temp.pdb')
+        temp = 'temp_{np.random.default_rng()}'
+        traj.save_dcd(f'{temp}.dcd')
+        traj[0].save_pdb(f'{temp}.pdb')
         
         # Correct periodic issues
-        traj = md.load('temp.dcd', top='temp.pdb')
+        traj = md.load(f'{temp}.dcd', top=f'{temp}.pdb')
+        os.remove(f'{temp}.dcd')
+        os.remove(f'{temp}.pdb')
         traj.image_molecules()
         
         # Align 
