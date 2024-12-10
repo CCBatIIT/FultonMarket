@@ -72,6 +72,7 @@ class FultonMarketAnalysis():
         if upper_limit is not None:
             self.energies = self.energies[:upper_limit+1]
             self.map = self.map[:upper_limit+1]
+            self.upper_limit = upper_limit
         
         fprint(f'Shape of final energies determined to be: {self.energies.shape}')
 
@@ -241,7 +242,11 @@ class FultonMarketAnalysis():
             
         # Create mdtraj obj
         traj = md.load_pdb(self.pdb)
+<<<<<<< HEAD
         
+=======
+                
+>>>>>>> d2130c547c9c581d2f610d557d82d75e7d1f8998
         # Use the map to find the resampled configurations
         inds = np.arange(0, self.energies.shape[0], stride)
         pos = np.empty((len(inds), self.positions[0].shape[2], 3))
@@ -256,11 +261,14 @@ class FultonMarketAnalysis():
         # Apply pos, box_vec to mdtraj obj
         traj.xyz = pos.copy()
         traj.unitcell_vectors = box_vec.copy()
-        traj.save_dcd('temp.dcd')
-        traj[0].save_pdb('temp.pdb')
+        temp = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}'
+        traj.save_dcd(f'{temp}.dcd')
+        traj[0].save_pdb(f'{temp}.pdb')
         
         # Correct periodic issues
-        traj = md.load('temp.dcd', top='temp.pdb')
+        traj = md.load(f'{temp}.dcd', top=f'{temp}.pdb')
+        os.remove(f'{temp}.dcd')
+        os.remove(f'{temp}.pdb')
         traj.image_molecules()
         
         # Align 
@@ -485,6 +493,8 @@ class FultonMarketAnalysis():
         """
         # Get state trajectory
         traj = self.state_trajectory(state_no, stride)
+        if hasattr(self, 'upper_limit'):
+            traj = traj[:self.upper_limit+1]
 
         # Get protein or resids of interest
         if self.resids is not None:
