@@ -242,8 +242,7 @@ class FultonMarketAnalysis():
             
         # Create mdtraj obj
         traj = md.load_pdb(self.pdb)
-        print('TEST1', traj.xyz.shape)
-        
+                
         # Use the map to find the resampled configurations
         inds = np.arange(0, self.energies.shape[0], stride)
         pos = np.empty((len(inds), self.positions[0].shape[2], 3))
@@ -258,8 +257,7 @@ class FultonMarketAnalysis():
         # Apply pos, box_vec to mdtraj obj
         traj.xyz = pos.copy()
         traj.unitcell_vectors = box_vec.copy()
-        temp = f'temp_{self.pdb..split("/"[-1].split(".")[0]}'
-        print(temp)
+        temp = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}'
         traj.save_dcd(f'{temp}.dcd')
         traj[0].save_pdb(f'{temp}.pdb')
         
