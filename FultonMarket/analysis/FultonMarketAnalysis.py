@@ -241,7 +241,6 @@ class FultonMarketAnalysis():
             
         # Create mdtraj obj
         traj = md.load_pdb(self.pdb)
-        print('TEST1', traj.xyz.shape)
         
         # Use the map to find the resampled configurations
         inds = np.arange(0, self.energies.shape[0], stride)

@@ -280,6 +280,8 @@ class FultonMarket():
         # Load args (not in correct shapes
         self.temperatures = np.load(os.path.join(self.load_dir, 'temperatures.npy'))
         self.temperatures = [t*unit.kelvin for t in self.temperatures]
+        self.n_replicates = len(self.temperatures)
+        printf(f'Changed n_replicates to {self.n_replicates}')
 
 
         # Load from .npy files
