@@ -37,11 +37,7 @@ try:
 except:
     total_sim_time = 500
 
-response = input('Proceed w/ 10 ps sub sim length? y/n \n')
-if response == 'y':
-    sub_sim_length = 0.01
-else:
-    raise Exception(response)
+sub_sim_length = 50
 
 try:
     n_replicates = int(sys.argv[6])
@@ -51,9 +47,5 @@ except:
 # Run rep exchange
 market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=input_state, n_replicates=n_replicates)
 
-
-response = input('Proceed w/ 0, 0.1 thresholds? y/n \n')
-if response != 'y':
-    raise Exception(response)
-market.run(total_sim_time=total_sim_time, iter_length=0.001, sim_length=sub_sim_length, output_dir=output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
+market.run(total_sim_time=total_sim_time, iter_length=0.001, sim_length=sub_sim_length, output_dir=output_dir)
 
