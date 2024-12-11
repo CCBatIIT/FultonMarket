@@ -1,5 +1,6 @@
 # Imports
-import os, sys, math, glob
+import os, sys, glob, jax, itertools
+import jax.numpy as jnp
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
@@ -17,10 +18,13 @@ from pymbar.timeseries import detect_equilibration
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from FultonMarketAnalysisUtils import *
 
-fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
+fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
+
+jax.print_environment_info()
+fprint(f"Default JAX backend is {jax.default_backend()}")
 
 
 class FultonMarketAnalysis():
@@ -96,7 +100,8 @@ class FultonMarketAnalysis():
         """
         
         # Determine equilibration
-        self._determine_equilibration()
+        if not hasattr(self, 't0'):
+                self._determine_equilibration()
 
         # Get average energies
         state_energies = np.empty((self.energies.shape[0], self.energies.shape[1]))
@@ -520,15 +525,15 @@ class FultonMarketAnalysis():
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
 
     
-    
+        
     def _remove_harmonic(self, spring_constant=83.65):
-
+    
         fprint('Removing harmonic restraint from energies...')
         # Equilibration if necessary
         if not hasattr(self, 't0'):
             self.equilibration_method = 'energy'
             self._determine_equilibration()
-
+    
         # Load positions
         if not hasattr(self, 'positions'):
             self._load_positions_box_vecs()
@@ -539,29 +544,28 @@ class FultonMarketAnalysis():
             sele = self.top.select(f'protein and resid {" ".join([str(resid) for resid in self.resids])}')
     
         # Iterate through frames
-        corrected_energies = np.empty((self.energies.shape[0] - self.t0, self.energies.shape[1], self.energies.shape[2]))
-        for frame in range(self.t0, corrected_energies.shape[0]):
-            if frame%10 == 0:
-                fprint(frame)
-            
+        for frame in range(self.t0, self.energies.shape[0]):
+        
+            if frame % 10 == 0:
+                print(datetime.now(), frame)
+        
             # Iterate through primary states
-            for state1 in range(corrected_energies.shape[1]):
-    
+            for state1 in range(self.energies.shape[1]):
+        
                 # Get frame, state positions
                 sim_no, sim_iter, sim_rep_ind = self.map[frame, state1]
-                pos = self.positions[sim_no][sim_iter][sim_rep_ind][sele]
-                spring_centers = self.spring_centers[0,sele]
+                pos = jnp.array([self.positions[sim_no][sim_iter][sim_rep_ind][sele]])
+                unitcell_lengths = jnp.array([self.box_vectors[sim_no][sim_iter][sim_rep_ind].sum(axis=1)])
+        
+                # Get spring centers
+                spring_centers = jnp.array([self.spring_centers[0,sele]]) # THIS ASSUMES THAT THE SPRING CENTERS PROVIDED ARE EQUAL IN ALL THERMODYNAMIC STATES
+        
+        
+                # Get translation in case of wrapping issue
+                trans, _ = best_translation_by_unitcell(unitcell_lengths, pos, spring_centers)
+        
+                # Correct 
+                self.energies[frame, state1, :] -= get_restraint_energy_kT(pos[0], trans[0], spring_centers[0], self.temperatures, spring_constant) 
     
-                # Iterate through secondary states
-                for state2, temp2 in enumerate(self.temperatures):
     
-                    # Get frame, state, state energies
-                    energies = self.energies[frame, state1, :]
-    
-                    # Correct
-                    corrected_energies[frame, state1, :] = get_energies_without_harmonic(energies, pos*10, spring_centers*10, self.temperatures, spring_constant)
-    
-        self.energies = corrected_energies.copy()
-        del corrected_energies
-
-        fprint(f'Harmonic restrain removed from energies with shape {self.energies.shape}')
+        fprint(f'Harmonic restraint removed from EQUILIBRATED frames of energies with shape {self.energies.shape}')
