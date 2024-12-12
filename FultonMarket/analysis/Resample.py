@@ -5,36 +5,73 @@ import matplotlib.pyplot as plt
 from pymbar.timeseries import detect_equilibration
 import os, sys
 import netCDF4 as nc
+import argparse
+import multiprocess as mp
 
-# Input
-upper_limit = int(sys.argv[1])
-sims = ['7OH_0', '7scg_0', '7u2k_4', '7u2l_6', '8ef5_0', '8ef6_0', '8efb_6', '8efo_0', '8efq_0', '8f7q_0', '8f7r_0', 'LeuEnk_0', 'MetEnk_0', 'apo_0', 'buprenorphine_0', 'c11guano_6', 'c3guano_1', 'c7guano_6', 'c9guano_6', 'carfentanil_0', 'dynorphin_0', 'oxycodone_0', 'pentazocine_0']
-repexchange_dir = '/expanse/lustre/projects/iit119/dcooper/MOR/replica_exchange'
-pdb_dir = '/expanse/lustre/projects/iit119/dcooper/MOR/systems'
-output_dir = f'/expanse/lustre/projects/iit119/dcooper/MOR/final/resampled/analogues/{upper_limit}'
-if not os.path.exists(output_dir):
-    os.mkdir(output_dir)
-    os.mkdir(os.path.join(output_dir, 'pdb'))
-    os.mkdir(os.path.join(output_dir, 'dcd'))
 
-for sim in sims:
-    # Define outputs
-    pdb_out = os.path.join(output_dir, 'pdb', "_".join(sim.split('_')[:-1]) + '.pdb')
-    dcd_out = os.path.join(output_dir, 'dcd', "_".join(sim.split('_')[:-1]) + '.dcd')
-    if not os.path.exists(dcd_out):
-        print(sim, pdb_out, dcd_out)
+
+
+# Arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('pdb_dir', help="path to directory with .pdb files for each simulation in 'repexchange_dir'")
+parser.add_argument('repexchange_dir', help="path to directory with the replica exchange output directories")
+parser.add_argument('output_dir', help="path to outputdir where resampled trajectories will be stored.")
+parser.add_argument('resids_npy', help="path to .npy file with the resids to include for principal component analysis and equilibration detection")
+parser.add_argument('--upper-limit', default=None, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
+parser.add_argument('--parallel', default=False, help="choose to multiprocess the calculation across different replica exchange simulations")
+args = parser.parse_args()
+
+# Multiprocessing method
+def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out):
+
+    # Initialize
+    analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=resids)
+    
+    # Importance Resampling
+    try:
+        analysis.importance_resampling(equilibration_method='PCA')
+    except NameError:
+        pass    
+
+    # Write out
+    analysis.write_resampled_traj(pdb_out, dcd_out)
+
+
+if __name__ == '__main__':
+    
+    # Input
+    sims = sorted(os.listdir(args.repexchange_dir))
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    if not os.path.exists(os.path.join(output_dir, 'pdb')):
+        os.mkdir(os.path.join(output_dir, 'pdb'))
+    if not os.path.exists(os.path.join(output_dir, 'dcd')):
+        os.mkdir(os.path.join(output_dir, 'dcd'))
+
+    # Set up arguments
+    args = []
+    for sim in sims:
         
-        # Sim input
-        dir = os.path.join(repexchange_dir, sim)
-        pdb = os.path.join(pdb_dir, sim.split('_')[0] + '.pdb')
-        
-        # Make obj
-        analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=np.array([84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349]))
-        
-        # Importance Resampling
-        try:
-            analysis.importance_resampling(equilibration_method='PCA')
-        except NameError:
-            pass
-        
-        analysis.write_resampled_traj(pdb_out, dcd_out)
+        # Define outputs
+        pdb_out = os.path.join(output_dir, 'pdb', "_".join(sim.split('_')[:-1]) + '.pdb')
+        dcd_out = os.path.join(output_dir, 'dcd', "_".join(sim.split('_')[:-1]) + '.dcd')
+        if not os.path.exists(dcd_out):
+            
+            # Sim input
+            dir = os.path.join(repexchange_dir, sim)
+            pdb = os.path.join(pdb_dir, sim.split('_')[0] + '.pdb')
+            upper_limit = args.upper_limit
+            resids = np.load(args.resids_npy)
+
+            if parallel:
+                args.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out))
+
+            else:
+                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out)
+
+    
+    # Multiprocess, if specified
+    if parallel:
+        with Pool(len(args)) as p:
+            p.starmap(resample, args*)
+                
