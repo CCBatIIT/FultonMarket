@@ -30,7 +30,7 @@ Description of Scripts:
 - RESAMPLE.py: Executable to perform importance resampling to acquire trajectories from FultonMarket experiments. To see how to execute, type the following into the console.
 
 ```console
-$ python RESAMPLE.py --help
+$ python ./FultonMarket/analysis/RESAMPLE.py --help
 ```
     
         
