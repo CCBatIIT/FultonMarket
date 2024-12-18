@@ -17,20 +17,21 @@ parser.add_argument('pdb_dir', help="path to directory with .pdb files for each 
 parser.add_argument('repexchange_dir', help="path to directory with the replica exchange output directories")
 parser.add_argument('output_dir', help="path to outputdir where resampled trajectories will be stored.")
 parser.add_argument('resids_npy', help="path to .npy file with the resids to include for principal component analysis and equilibration detection")
+parser.add_argument('--nframes', default=1000, type=int, help="number of frames to resample")
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
 parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
 args = parser.parse_args()
 
 
 # Multiprocessing method
-def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out):
+def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, n_samples):
 
     # Initialize
     analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=resids)
     
     # Importance Resampling
     try:
-        analysis.importance_resampling(equilibration_method='PCA')
+        analysis.importance_resampling(n_samples=n_samples, equilibration_method='PCA')
     except NameError:
         pass    
 
@@ -67,12 +68,13 @@ if __name__ == '__main__':
             pdb = os.path.join(pdb_dir, sim.split('_')[0] + '.pdb')
             upper_limit = args.upper_limit
             resids = np.load(args.resids_npy)
+            n_samples = args.nframes
 
             if parallel:
-                mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out))
+                mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out, n_samples))
 
             else:
-                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out)
+                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, n_samples)
 
     
     # Multiprocess, if specified
