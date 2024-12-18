@@ -44,7 +44,7 @@ class FultonMarketAnalysis():
             input_dir = input_dir[:-1]
         self.input_dir = input_dir
         self.stor_dir = os.path.join(input_dir, 'saved_variables')
-        assert os.path.isdir(self.stor_dir)
+        assert os.path.isdir(self.stor_dir), self.stor_dir
         fprint(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
         self.pdb = pdb 
@@ -237,7 +237,7 @@ class FultonMarketAnalysis():
        
     
 
-    def state_trajectory(self, state_no=0, stride: int=1):
+    def state_trajectory(self, state_no=0, stride: int=1, corrections: bool=True):
         """    
         State_no is the thermodynamics state to retrieve
         If pdb file is provided (top_file), then an MdTraj trajectory will be returned
@@ -248,7 +248,6 @@ class FultonMarketAnalysis():
             
         # Create mdtraj obj
         traj = md.load_pdb(self.pdb)
-        print('TEST1', traj.xyz.shape)
         
         # Use the map to find the resampled configurations
         inds = np.arange(0, self.energies.shape[0], stride)
@@ -259,23 +258,28 @@ class FultonMarketAnalysis():
             # Use map
             sim_no, sim_iter, sim_rep_ind = self.map[ind, state_no].astype(int)
 
-            print('TEST2', self.positions[sim_no][sim_iter][sim_rep_ind].shape)
             pos[i] = np.array(self.positions[sim_no][sim_iter][sim_rep_ind])
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
         
         # Apply pos, box_vec to mdtraj obj
         traj.xyz = pos.copy()
         traj.unitcell_vectors = box_vec.copy()
-        traj.save_dcd('temp.dcd')
-        traj[0].save_pdb('temp.pdb')
-        
-        # Correct periodic issues
-        traj = md.load('temp.dcd', top='temp.pdb')
-        traj.image_molecules()
-        
-        # Align 
-        prot_sel = self.top.select('protein and name CA')
-        traj = traj.superpose(traj, frame=0, atom_indices=prot_sel, ref_atom_indices=prot_sel)
+
+        if corrections:
+            # Make temporary file
+            temp = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}'
+            traj.save_dcd(f'{temp}.dcd')
+            traj[0].save_pdb(f'{temp}.pdb')
+            
+            # Correct periodic issues
+            traj = md.load(f'{temp}.dcd', top=f'{temp}.pdb')
+            os.remove(f'{temp}.dcd')
+            os.remove(f'{temp}.pdb')
+            traj.image_molecules()
+            
+            # Align 
+            prot_sel = self.top.select('protein and name CA')
+            traj = traj.superpose(traj, frame=0, atom_indices=prot_sel, ref_atom_indices=prot_sel)
         
 
         return traj
