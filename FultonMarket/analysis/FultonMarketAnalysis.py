@@ -40,7 +40,7 @@ class FultonMarketAnalysis():
             input_dir = input_dir[:-1]
         self.input_dir = input_dir
         self.stor_dir = os.path.join(input_dir, 'saved_variables')
-        assert os.path.isdir(self.stor_dir)
+        assert os.path.isdir(self.stor_dir), self.stor_dir
         fprint(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
         self.pdb = pdb 

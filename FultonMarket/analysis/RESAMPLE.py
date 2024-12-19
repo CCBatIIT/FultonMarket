@@ -7,7 +7,9 @@ import os, sys
 import netCDF4 as nc
 import argparse
 import multiprocessing as mp
-
+import jax
+# Global flag to set a specific platform, must be used at startup.
+jax.config.update('jax_platform_name', 'cpu')
 
 
 
@@ -79,6 +81,16 @@ if __name__ == '__main__':
     
     # Multiprocess, if specified
     if parallel:
-        with mp.Pool(len(mpargs)) as p:
-            p.starmap(resample, mpargs)
+        counter = 0
+        while len(os.listdir(os.path.join(pdb_dir))) < len(sims) and counter < 5:
+            try:
+                n_threads = os.environ('NUM_THREADS')
+            except:
+                n_threads = len(mpargs) 
+            with mp.Pool(n_threads) as p:
+                p.starmap(resample, mpargs, chunksize=int(len(mp_args) / n_threads))
+                p.close()
+                p.join()
+
+            counter += 1
 
