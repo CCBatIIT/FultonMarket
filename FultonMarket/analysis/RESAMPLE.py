@@ -55,6 +55,8 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(output_dir, 'pdb'))
     if not os.path.exists(os.path.join(output_dir, 'dcd')):
         os.mkdir(os.path.join(output_dir, 'dcd'))
+    if not os.path.exists(os.path.join(output_dir, 'mbar_weights')):
+        os.mkdir(os.path.join(output_dir, 'mbar_weights'))
 
     # Set up arguments
     mpargs = []
