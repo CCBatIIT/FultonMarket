@@ -23,7 +23,7 @@ rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
 
 @staticmethod
-def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, reshape_weights: tuple=None, specify_state: int=0, return_inds: bool=False, return_weights: bool=False):
+def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, reshape_weights: tuple=None, specify_state: int=0, return_inds: bool=False, return_weights: bool=False, return_resampled_weights: bool=False, replace: bool=True):
 
     # Get MBAR weights
     weights = compute_MBAR_weights(u_kln, N_k)
@@ -40,7 +40,12 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
 
 
     # Resample
-    resampled_inds = np.random.choice(range(len(probs)), size=size, replace=True, p=probs)
+    if size == -1:
+        size = len(np.where(probs >= probs.max()*0.001)[0])
+        fprint(f'Top 99.9% of probability includes {size} no. of frames')
+        probs[probs < probs.max()*0.001] = 0
+        probs /= probs.sum()
+    resampled_inds = np.random.choice(range(len(probs)), size=size, replace=replace, p=probs)
     resampled_objs = []
     for obj in objs:
         resampled_objs.append(np.array([obj[resampled_ind] for resampled_ind in resampled_inds]))
@@ -53,10 +58,14 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         for resampled_obj in resampled_objs:
             return_list.append(resampled_obj)
 
+    # Optional returns
     if return_inds:
         return_list.append(resampled_inds)
     if return_weights:
         return_list.append(weights)
+    if return_resampled_weights:
+        resampled_weights = weights[resampled_inds, specify_state]
+        return_list.append(resampled_weights)
 
     return return_list
 

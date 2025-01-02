@@ -141,7 +141,7 @@ class FultonMarketAnalysis():
     
     
     
-    def importance_resampling(self, n_samples:int=1000, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None):
+    def importance_resampling(self, n_samples:int=1000, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None, replace: bool=True):
         """
         """           
         self.equilibration_method = equilibration_method
@@ -162,7 +162,7 @@ class FultonMarketAnalysis():
             self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
             u_kln = self.energies[self.t0:].T
             N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
-        self.resampled_inds, self.weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, specify_state=0)
+        self.resampled_inds, self.weights, self.resampled_weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, return_resampled_weights=True, specify_state=0, replace=replace)
         
         
 
@@ -186,7 +186,7 @@ class FultonMarketAnalysis():
     
     
     
-    def write_resampled_traj(self, pdb_out: str, dcd_out: str, return_traj: bool=False):
+    def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, return_traj: bool=False):
         
         # Make sure resampling has already occured
         if not hasattr(self, 'resampled_inds'):
@@ -203,7 +203,7 @@ class FultonMarketAnalysis():
         pos = np.empty((len(self.resampled_inds), self.positions[0].shape[2], 3))
         box_vec = np.empty((len(self.resampled_inds), 3, 3))
         for i, (state, iter) in enumerate(self.resampled_inds):
-            
+
             # Use map
             sim_no, sim_iter, sim_rep_ind = self.map[iter, state].astype(int)
             
@@ -222,8 +222,13 @@ class FultonMarketAnalysis():
         traj.image_molecules()
         traj[0].save_pdb(pdb_out)
         traj.save_dcd(dcd_out)
-
         fprint(f'{traj.n_frames} frames written to {pdb_out}, {dcd_out}')
+
+        # Save weights, if specified
+        if weights_out is not None:
+            np.save(weights_out, self.resampled_weights)
+            fprint(f'{traj.n_frames} mbar weights written to {weights_out}')
+
         
         if return_traj:
             return traj
