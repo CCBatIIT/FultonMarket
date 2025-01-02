@@ -26,6 +26,7 @@ import jax
 # Multiprocessing method
 def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_samples, replace):
 
+   
     # Initialize
     analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=resids)
     
@@ -37,7 +38,7 @@ def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_sam
 
     # Write out
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
-    del analysis
+    del analysis    
 
 
 if __name__ == '__main__':
@@ -86,11 +87,11 @@ if __name__ == '__main__':
     # Multiprocess, if specified
     if parallel:
         counter = 0
-        while len(os.listdir(os.path.join(pdb_dir))) < len(sims) and counter < 5:
+        while len(os.listdir(os.path.join(output_dir, 'pdb'))) < len(sims) and counter < 5:
             try:
-                n_threads = os.environ('NUM_THREADS')
+                n_threads = int(os.environ('NUM_THREADS'))
             except:
-                n_threads = 50
+                n_threads = 5
             with mp.Pool(n_threads) as p:
                 p.starmap(resample, mpargs)
                 p.close()
