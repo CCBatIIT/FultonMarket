@@ -19,6 +19,7 @@ parser.add_argument('input_dir', help="absolute path to the directory with input
 parser.add_argument('name', help="pdb file before the extension")
 parser.add_argument('output_dir', help="absolute path to the directory where a subdirectory with output will be stored")
 parser.add_argument('replicate', help="replicate number of simulation. THIS MUST BE SPECIFIED to avoid accidental overwritting")
+parser.add_argument('--no-context', action='store_true', help="if this option is chosen, do not use and openMM state to contextualize the simulation. recommended to continuing simulations only.")
 parser.add_argument('-t', '--total-sim-time', default=500, help="total simulation aggregate time. Default is 500 ns.", type=int)
 parser.add_argument('-s', '--sub-sim-length', default=50, help="time of sub simulations. Default is 50 ns. Recommended this is smaller for larger systems.", type=int)
 parser.add_argument('-n', '--n-replica', default=100, help="number of replica to start with between T_min (300 K) and T_max (360 K)", type=int)
