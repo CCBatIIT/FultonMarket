@@ -34,7 +34,11 @@ if __name__ == '__main__':
     input_dir = args.input_dir
     name = args.name
     input_sys = os.path.join(input_dir, name+'_sys.xml')
-    input_state = os.path.join(input_dir, name+'_state.xml')
+    if args.no_context:
+        input_state = None
+    else:
+        input_state = os.path.join(input_dir, name+'_state.xml')
+    
     input_pdb = os.path.join(input_dir, name+'.pdb')
     
     # Outputs
