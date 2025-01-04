@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     
     # Run rep exchange
-    market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=input_state, n_replicates=args.n)
+    market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=input_state, n_replicates=args.n_replica)
     
-    market.run(total_sim_time=args.t, iter_length=0.001, sim_length=args.s, output_dir=output_dir)
+    market.run(total_sim_time=args.total_sim_time, iter_length=0.001, sim_length=args.sub_sim_length, output_dir=output_dir)
 
