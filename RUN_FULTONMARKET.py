@@ -13,26 +13,22 @@ PARAMETERS:
 
 
 import os, sys, argparse
+# Arguments
+parser == argparse.ArgumentParser()
+parser.add_argument('input_dir', help="absolute path to the directory with input xml and pdb")
+parser.add_argument('name', help="pdb file before the extension")
+parser.add_argument('output_dir', help="absolute path to the directory where a subdirectory with output will be stored")
+parser.add_argument('replicate', help="replicate number of simulation. THIS MUST BE SPECIFIED to avoid accidental overwritting")
+parser.add_argument('-t', '--total-sim-time', default=500, help="total simulation aggregate time. Default is 500 ns.", type=int)
+parser.add_argument('-s', '--sub-sim-length', default=50, help="time of sub simulations. Default is 50 ns. Recommended this is smaller for larger systems.", type=int)
+parser.add_argument('-n', '--n-replica', default=100, help="number of replica to start with between T_min (300 K) and T_max (360 K)", type=int)
+args = parser.parse_args()
+
 sys.path.append('FultonMarket')
 from FultonMarket import FultonMarket
 
-
-
 if __name__ == '__main__':
 
-    # Arguments
-    parser == argparse.ArgumentParser()
-    parser.add_argument('input_dir', help="absolute path to the directory with input xml and pdb")
-    parser.add_argument('name', help="pdb file before the extension")
-    parser.add_argument('output_dir', help="absolute path to the directory where a subdirectory with output will be stored")
-    parser.add_argument('replicate', help="replicate number of simulation. THIS MUST BE SPECIFIED to avoid accidental overwritting")
-    parser.add_argument('-t', '--total-sim-time', default=500, help="total simulation aggregate time. Default is 500 ns.", type=int)
-    parser.add_argument('-s', '--sub-sim-length', default=50, help="time of sub simulations. Default is 50 ns. Recommended this is smaller for larger systems.", type=int)
-    parser.add_argument('-n', '--n-replica', default=100, help="number of replica to start with between T_min (300 K) and T_max (360 K)", type=int)
-    args = parser.parse_args()
-
-
-    
     # Inputs
     input_dir = args.input_dir
     name = args.name
