@@ -14,7 +14,7 @@ PARAMETERS:
 
 import os, sys, argparse
 # Arguments
-parser == argparse.ArgumentParser()
+parser = argparse.ArgumentParser()
 parser.add_argument('input_dir', help="absolute path to the directory with input xml and pdb")
 parser.add_argument('name', help="pdb file before the extension")
 parser.add_argument('output_dir', help="absolute path to the directory where a subdirectory with output will be stored")
