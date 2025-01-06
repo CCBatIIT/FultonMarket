@@ -6,7 +6,7 @@ parser.add_argument('pdb_dir', help="path to directory with .pdb files for each 
 parser.add_argument('repexchange_dir', help="path to directory with the replica exchange output directories")
 parser.add_argument('output_dir', help="path to outputdir where resampled trajectories will be stored.")
 parser.add_argument('resids_npy', help="path to .npy file with the resids to include for principal component analysis and equilibration detection")
-parser.add_argument('--nframes', default=-1, type=int, help="number of frames to resample, default is -1 meaning to resample frames from the top 99.9% of probability.")
+parser.add_argument('--nframes', default=-1, type=int, help="number of frames to resample, default is -1 meaning to resample frames from the top 99.9%% of probability.")
 parser.add_argument('--no-replace', action='store_true', help="choose not to use resampling with replacement. this is only recommended when n_frames is -1 or default")
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
 parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
