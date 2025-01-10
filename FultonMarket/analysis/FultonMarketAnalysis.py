@@ -264,12 +264,10 @@ class FultonMarketAnalysis():
         traj.unitcell_vectors = box_vec.copy()
         temp = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}'
         traj.save_dcd(f'{temp}.dcd')
-        traj[0].save_pdb(f'{temp}.pdb')
         
         # Correct periodic issues
-        traj = md.load(f'{temp}.dcd', top=f'{temp}.pdb')
+        traj = md.load(f'{temp}.dcd', top=self.pdb)
         os.remove(f'{temp}.dcd')
-        os.remove(f'{temp}.pdb')
         traj.image_molecules()
         
         # Align 
@@ -467,17 +465,17 @@ class FultonMarketAnalysis():
          
         elif self.equilibration_method == 'PCA':    
             # PCA
-            pca, reduced_cartesian, explained_variance, n_components = self.get_PCA(explained_variance_threshold=0.9)
+            pca, self.reduced_cartesian, self.explained_variance, self.n_components = self.get_PCA(explained_variance_threshold=0.9)
             
             # Iterate through PCs to detect equilibration
-            equil_times = np.empty(n_components)
-            for pc in range(n_components):
-                equil_times[pc] = detect_PC_equil(pc, reduced_cartesian)
+            equil_times = np.empty(self.n_components)
+            for pc in range(self.n_components):
+                equil_times[pc] = detect_PC_equil(pc, self.reduced_cartesian)
 
 
             # Save equilibration/uncorrelated inds to new variables
-            weights = pca.explained_variance_ratio_[:n_components]
-            self.t0 = np.sum(equil_times  * (weights / weights.sum())).astype(int)
+            self.pca_weights = pca.explained_variance_ratio_[:self.n_components]
+            self.t0 = np.sum(equil_times  * (self.pca_weights / self.pca_weights.sum())).astype(int)
          
         elif self.equilibration_method == 'None':
             self.t0 = 0
@@ -524,3 +522,18 @@ class FultonMarketAnalysis():
         for sim_no, storage_dir in enumerate(self.storage_dirs):
             self.positions.append(np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:])
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
+
+
+def calculate_weighted_projection(rc, nframes, n_components, weights):
+    reduced_cartesian_to_calc = rc[:nframes]
+    component_coords = dict()
+    for pc in range(n_components):
+        # compute the weighted reduced cartesian values after equilibration
+        component_coords[pc] = reduced_cartesian_to_calc[:, pc] * weights[pc] 
+
+    weighted_aggregated_cartesian = []
+    for i in range(len(component_coords[0])): # Iterate over each sample
+        temp_sum = sum(component_coords[pc][i] for pc in range(n_components))
+        weighted_aggregated_cartesian.append(temp_sum)
+    weighted_aggregated_cartesian = np.array(weighted_aggregated_cartesian)
+    return weighted_aggregated_cartesian
