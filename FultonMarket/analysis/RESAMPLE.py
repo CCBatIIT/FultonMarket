@@ -70,7 +70,7 @@ if __name__ == '__main__':
             
             # Sim input
             dir = os.path.join(repexchange_dir, sim)
-            pdb = os.path.join(pdb_dir, sim.split('_')[0] + '.pdb')
+            pdb = os.path.join(pdb_dir, "_".join(sim.split('_')[:-1]) + '.pdb')
             upper_limit = args.upper_limit
             resids = np.load(args.resids_npy)
             n_samples = args.nframes
