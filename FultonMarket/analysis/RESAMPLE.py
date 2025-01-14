@@ -10,6 +10,7 @@ parser.add_argument('--nframes', default=-1, type=int, help="number of frames to
 parser.add_argument('--no-replace', action='store_true', help="choose not to use resampling with replacement. this is only recommended when n_frames is -1 or default")
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
 parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
+parser.add_argument('--sim-names', default=None, help="Comma delimited string of replica exchange names to analyze. EX: drug_1,drug_2,drug_3")
 args = parser.parse_args()
 
 from FultonMarketAnalysis import FultonMarketAnalysis
@@ -29,12 +30,10 @@ def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_sam
    
     # Initialize
     analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=resids)
-    
+
     # Importance Resampling
-    try:
-        analysis.importance_resampling(n_samples=n_samples, equilibration_method='PCA', replace=replace)
-    except NameError:
-        pass    
+    analysis.determine_equilibration()
+    analysis.importance_resampling()
 
     # Write out
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
@@ -44,7 +43,10 @@ def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_sam
 if __name__ == '__main__':
     
     # Input
-    sims = sorted(os.listdir(args.repexchange_dir))
+    if args.sim_names is not None:
+        sims = sorted(args.sim_names.split(','))
+    else:
+        sims = sorted(os.listdir(args.repexchange_dir))
     repexchange_dir = args.repexchange_dir
     output_dir = args.output_dir
     pdb_dir = args.pdb_dir

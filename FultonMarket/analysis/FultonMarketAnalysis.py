@@ -17,7 +17,7 @@ from pymbar.timeseries import detect_equilibration
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from FultonMarketAnalysisUtils import *
 
-fprint = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
+printf = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
@@ -30,7 +30,7 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=0, scheduling: str='Temperature', resids: List[int]=None, upper_limit: int=None):
+    def __init__(self, input_dir:str, pdb: str, skip: int=10, scheduling: str='Temperature', resids: List[int]=None, upper_limit: int=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -41,7 +41,7 @@ class FultonMarketAnalysis():
         self.input_dir = input_dir
         self.stor_dir = os.path.join(input_dir, 'saved_variables')
         assert os.path.isdir(self.stor_dir), self.stor_dir
-        fprint(f"Found storage directory at {self.stor_dir}")
+        printf(f"Found storage directory at {self.stor_dir}")
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
         self.pdb = pdb 
         self.top = md.load_pdb(self.pdb).topology
@@ -51,7 +51,7 @@ class FultonMarketAnalysis():
         # Load saved variables
         self.temperatures_list = [np.round(np.load(os.path.join(storage_dir, 'temperatures.npy'), mmap_mode='r'), decimals=2) for storage_dir in self.storage_dirs]
         self.temperatures = self.temperatures_list[-1]
-        fprint(f"Shapes of temperature arrays: {[(i, temp.shape) for i, temp in enumerate(self.temperatures_list)]}")
+        printf(f"Shapes of temperature arrays: {[(i, temp.shape) for i, temp in enumerate(self.temperatures_list)]}")
         self.state_inds = [np.load(os.path.join(storage_dir, 'states.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
@@ -74,7 +74,7 @@ class FultonMarketAnalysis():
             self.map = self.map[:upper_limit+1]
             self.upper_limit = upper_limit
         
-        fprint(f'Shape of final energies determined to be: {self.energies.shape}')
+        printf(f'Shape of final energies determined to be: {self.energies.shape}')
 
 
         
@@ -141,29 +141,24 @@ class FultonMarketAnalysis():
     
     
     
-    def importance_resampling(self, n_samples:int=1000, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None, replace: bool=True):
+    def importance_resampling(self, n_samples:int=-1, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None, replace: bool=False):
         """
         """           
-        self.equilibration_method = equilibration_method
+        if not hasattr(self, 'equilibration_method'):
+            self.equilibration_method = equilibration_method
         
         #Ensure equilibration has been detected
         if not hasattr(self, 't0'):
-            self._determine_equilibration()
+            self.determine_equilibration()
         
         # Create map to match shape of weights
   
         # Get MBAR weights
-        if self.equilibration_method == 'energy':
-            u_kln = self.energies[self.t0:][self.uncorrelated_indices].T
-            N_k = [len(self.uncorrelated_indices) for i in range(self.energies.shape[1])]
-            self.flat_inds = np.array([[state, ind] for ind in self.uncorrelated_indices for state in range(self.energies.shape[1])])
-
-        else:
-            self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
-            u_kln = self.energies[self.t0:].T
-            N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
+        self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
+        u_kln = self.energies[self.t0:].T
+        N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
         self.resampled_inds, self.weights, self.resampled_weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, return_resampled_weights=True, specify_state=0, replace=replace)
-        
+    
         
 
     def plot_weights(self, state_no: int=0, figsize: tuple=(4,4)):
@@ -196,9 +191,6 @@ class FultonMarketAnalysis():
         if not hasattr(self, 'positions'):
             self._load_positions_box_vecs()
         
-        # Create mdtraj obj
-        traj = md.load_pdb(self.pdb)
-        
         # Use the map to find the resampled configurations
         pos = np.empty((len(self.resampled_inds), self.positions[0].shape[2], 3))
         box_vec = np.empty((len(self.resampled_inds), 3, 3))
@@ -209,29 +201,21 @@ class FultonMarketAnalysis():
             
             pos[i] = np.array(self.positions[sim_no][sim_iter][sim_rep_ind])
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
-        
-        # Apply pos, box_vec to mdtraj obj
-        traj.xyz = pos.copy()
-        traj.unitcell_vectors = box_vec.copy()
-        traj.save_dcd(dcd_out)
-        
-        # Correct periodic issues
-        traj = md.load(dcd_out, top=self.pdb)
-        prot_sele = self.top.select('protein')
-        traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
-        traj.image_molecules()
-        traj[0].save_pdb(pdb_out)
-        traj.save_dcd(dcd_out)
-        fprint(f'{traj.n_frames} frames written to {pdb_out}, {dcd_out}')
+
+        # Write out trajectory
+        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, dcd_out)
+        self.traj[0].save_pdb(pdb_out)
+        self.traj.save_dcd(dcd_out)
+        printf(f'{self.traj.n_frames} frames written to {pdb_out}, {dcd_out}')
 
         # Save weights, if specified
         if weights_out is not None:
             np.save(weights_out, self.resampled_weights)
-            fprint(f'{traj.n_frames} mbar weights written to {weights_out}')
+            printf(f'{self.traj.n_frames} mbar weights written to {weights_out}')
 
         
         if return_traj:
-            return traj
+            return self.traj
 
        
     
@@ -244,10 +228,7 @@ class FultonMarketAnalysis():
         """
         if not (hasattr(self, 'positions') or hasattr(self, 'box_vectors')):
             self._load_positions_box_vecs()
-            
-        # Create mdtraj obj
-        traj = md.load_pdb(self.pdb)
-
+  
         # Use the map to find the resampled configurations
         inds = np.arange(0, self.energies.shape[0], stride)
         pos = np.empty((len(inds), self.positions[0].shape[2], 3))
@@ -260,20 +241,9 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
         
         # Apply pos, box_vec to mdtraj obj
-        traj.xyz = pos.copy()
-        traj.unitcell_vectors = box_vec.copy()
-        temp = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}'
-        traj.save_dcd(f'{temp}.dcd')
-        
-        # Correct periodic issues
-        traj = md.load(f'{temp}.dcd', top=self.pdb)
-        os.remove(f'{temp}.dcd')
-        traj.image_molecules()
-        
-        # Align 
-        prot_sel = self.top.select('protein and name CA')
-        traj = traj.superpose(traj, frame=0, atom_indices=prot_sel, ref_atom_indices=prot_sel)
-        
+        temp_dcd = f'temp_{self.pdb.split("/")[-1].split(".")[0]}_{np.random.randint(9999)}.dcd'
+        traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, temp_dcd)
+        os.remove(temp_dcd)
 
         return traj
     
@@ -371,7 +341,7 @@ class FultonMarketAnalysis():
         """
         # Determine interpolation inds
         self._determine_interpolation_inds()
-        fprint(f'Detected interpolations at: {self.interpolation_inds}')
+        printf(f'Detected interpolations at: {self.interpolation_inds}')
 
         # Determine which simulations to resample from
         filled_sims = [True if not self.interpolation_inds[i] else False for i in range(len(self.interpolation_inds))]
@@ -439,7 +409,7 @@ class FultonMarketAnalysis():
     
     
 
-    def _determine_equilibration(self):
+    def determine_equilibration(self, equilibration_method: str='PCA', stride: int=10):
         """
         Automated equilibration detection
         suggests an equilibration index (with respect to the whole simulation) by detecting equilibration for the average energies
@@ -447,71 +417,64 @@ class FultonMarketAnalysis():
         returns the likely best index of equilibration
         """
 
-        
-        # Compute average energies
-        if self.equilibration_method == 'energy':
-            
-            self.average_energies = np.zeros((self.energies.shape[0], self.energies.shape[1]))
-            for state_no in range(self.energies.shape[1]):
-                self.average_energies[:,state_no] = self.get_state_energies(state_index=state_no)
-            self.average_energies = self.average_energies.mean(axis=1)
-
-            self.t0, self.g, Neff_max = timeseries.detect_equilibration(self.average_energies) # compute indices of uncorrelated timeseries
-            A_t_equil = self.average_energies[self.t0:]
-            indices = timeseries.subsample_correlated_data(A_t_equil, g=self.g)
-            A_n = A_t_equil[indices]
-            self.uncorrelated_indices = indices
-            
-         
-        elif self.equilibration_method == 'PCA':    
-            # PCA
-            pca, self.reduced_cartesian, self.explained_variance, self.n_components = self.get_PCA(explained_variance_threshold=0.9)
+        if not hasattr(self, 'equilibration_method'):
+            self.equilibration_method = equilibration_method
+ 
+        # PCA
+        if self.equilibration_method == 'PCA':
+            self.get_PCA(state_no=0, stride=stride, explained_variance_threshold=0.9)
             
             # Iterate through PCs to detect equilibration
             equil_times = np.empty(self.n_components)
             for pc in range(self.n_components):
                 equil_times[pc] = detect_PC_equil(pc, self.reduced_cartesian)
-
-
+    
+    
             # Save equilibration/uncorrelated inds to new variables
-            self.pca_weights = pca.explained_variance_ratio_[:self.n_components]
-            self.t0 = np.sum(equil_times  * (self.pca_weights / self.pca_weights.sum())).astype(int)
+            self.t0 = np.sum(equil_times  * (self.explained_variance / self.explained_variance.sum())).astype(int) * stride
          
         elif self.equilibration_method == 'None':
             self.t0 = 0
-          
         else:
-            print('equilibration_method must be either PCA or energy (or None if youre zesty)')
+            print('equilibration_method must be either PCA or None')
 
-        fprint(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {self.equilibration_method}')
+        printf(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {self.equilibration_method}')
 
     
 
-    def get_PCA(self, state_no: int=0, stride: int=10, n_components: int=2, explained_variance_threshold: float=None):
-        """
-        """
-        # Get state trajectory
-        traj = self.state_trajectory(state_no, stride)
-        if hasattr(self, 'upper_limit'):
-            traj = traj[:self.upper_limit+1]
+    def get_PCA(self, state_no: int=None, stride: int=1, explained_variance_threshold: float=0.9):
+            
+            # Get state trajectory
+            if state_no is None:
+                traj = deepcopy(self.traj)
+            else:
+                traj = self.state_trajectory(state_no, stride)
+                if hasattr(self, 'upper_limit'):
+                    traj = traj[:self.upper_limit+1]            
+        
+            # Get protein or resids of interest
+            if self.resids is not None:
+                sele = traj.topology.select(f'resid {" ".join([str(resid) for resid in self.resids])}')
+            else:
+                sele = traj.topology.select('protein')
+            traj = traj.atom_slice(sele)
+        
+            # PCA
+            pca, self.reduced_cartesian, self.explained_variance, self.n_components = get_traj_PCA(traj, explained_variance_threshold=0.9)
+            printf(f'Computed reduced cartesian with shape: {self.reduced_cartesian.shape}')
 
-        # Get protein or resids of interest
-        if self.resids is not None:
-            sele = traj.topology.select(f'resid {" ".join([str(resid) for resid in self.resids])}')
-        else:
-            sele = traj.topology.select('protein')
-        traj = traj.atom_slice(sele)
     
-        # PCA
-        pca = PCA()
-        reduced_cartesian = pca.fit_transform(traj.xyz.reshape(traj.n_frames, traj.n_atoms * 3))
-        explained_variance = np.array([np.sum(pca.explained_variance_ratio_[:i+1]) for i in range(pca.n_components_)])
+    def get_weighted_reduced_cartesian(self, rc_upper_limit: None, return_weighted_rc: bool=False):
+        """
+        """
+        if rc_upper_limit is None:
+            rc_upper_limit = np.inf
+    
+        self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, self.resampled_inds, rc_upper_limit, self.explained_variance, self.resampled_weights)
 
-        if explained_variance_threshold is not None:
-            n_components = int(np.where(explained_variance >= explained_variance_threshold)[0][0])
-
-        return pca, reduced_cartesian[:,:n_components], explained_variance[:n_components], n_components
-
+        if return_weighted_rc:
+            return self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err
+            
     
     
     def _load_positions_box_vecs(self):
@@ -524,16 +487,4 @@ class FultonMarketAnalysis():
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
 
 
-def calculate_weighted_projection(rc, nframes, n_components, weights):
-    reduced_cartesian_to_calc = rc[:nframes]
-    component_coords = dict()
-    for pc in range(n_components):
-        # compute the weighted reduced cartesian values after equilibration
-        component_coords[pc] = reduced_cartesian_to_calc[:, pc] * weights[pc] 
 
-    weighted_aggregated_cartesian = []
-    for i in range(len(component_coords[0])): # Iterate over each sample
-        temp_sum = sum(component_coords[pc][i] for pc in range(n_components))
-        weighted_aggregated_cartesian.append(temp_sum)
-    weighted_aggregated_cartesian = np.array(weighted_aggregated_cartesian)
-    return weighted_aggregated_cartesian
