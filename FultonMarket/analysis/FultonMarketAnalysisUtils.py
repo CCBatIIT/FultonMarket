@@ -21,6 +21,19 @@ geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - 
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
 
+def PCA_convergence_detection(rc, rc_err):
+
+    converged = np.array([False for i in range(len(rc)-1)])
+    for i, (rc_i, rc_err_i) in enumerate(zip(rc[:-1], rc_err[:-1])):
+        if rc_i - rc_err_i <= 0:
+            converged[i] = True
+        else:
+            converged[:i+1] = False
+
+    return converged
+
+
+
 def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, dcd_out):
     # Create traj obj
     traj = md.load_pdb(pdb_in)

@@ -43,8 +43,10 @@ if response == 'y':
     init_kwargs = dict(input_pdb='./Test_Cases/input/7OH.pdb',
                        input_system='./Test_Cases/input/7OH_sys.xml',
                        input_state='./Test_Cases/input/7OH_state.xml',
-                       n_replicates=5)
-    run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.1,
+                       n_replicates=5,
+                       T_min=310,
+                       T_max=320)
+    run_kwargs = dict(convergence_thresh=0.3, resids=np.load('./Test_Cases/input/MOR_resids.npy'), iter_length=0.001, sim_length=0.1,
                       output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
     market = FultonMarket(**init_kwargs)
     market.run(**run_kwargs)
