@@ -13,6 +13,7 @@ PARAMETERS:
 
 
 import os, sys, argparse
+import numpy as np
 # Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('input_dir', help="absolute path to the directory with input xml and pdb")
@@ -20,7 +21,7 @@ parser.add_argument('name', help="pdb file before the extension")
 parser.add_argument('output_dir', help="absolute path to the directory where a subdirectory with output will be stored")
 parser.add_argument('replicate', help="replicate number of simulation. THIS MUST BE SPECIFIED to avoid accidental overwritting")
 parser.add_argument('--no-context', action='store_true', help="if this option is chosen, do not use and openMM state to contextualize the simulation. recommended to continuing simulations only.")
-parser.add_argument('-c', '--convergence-tresh', default=0.350, type=float, help='amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 350. If this is not None, then this criterion will be used over total simulation time (see below).')
+parser.add_argument('-c', '--convergence-thresh', default=0.350, type=float, help='amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 350. If this is not None, then this criterion will be used over total simulation time (see below).')
 parser.add_argument('-r', '--resids-npy', default=None, type=str, help='path to numpy array of resSeqs to use to compute the PCA and evaluate the mean weighted reduced cartesians. If convergence_thresh is not None, this option should be specified. Default is None.')
 parser.add_argument('-t', '--total-sim-time', default=None, type=int, help="aggregate simulation time from all replicates in nanoseconds. Default is None. If this option is specified and convergence_thresh is None, then this criterion will be used to evaluate when the simulation is complete.")
 parser.add_argument('-s', '--sub-sim-length', default=50, type=int, help="amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 350. If this is not None, then this criterion will be used over total simulation time (see below).")

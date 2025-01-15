@@ -410,7 +410,7 @@ class FultonMarket():
         analysis.get_PCA()
 
         # Get mean weighted reduced cartesians
-        domains = np.arange(int(1000 * self.iter_length * 1000), int(domain + self.sim_length * 10 * self.iter_length * 1000 , self.sim_length * 10)
+        domains = np.arange(int(1000 * self.iter_length * 1000), int(domain + self.sim_length * 10 * self.iter_length * 1000), int(self.sim_length * 10))
         mean_weighted_rc = np.empty(len(domains))
         mean_weighted_rc_err = np.empty(len(domains))
         for i, domain in enumerate(domains):
@@ -421,7 +421,7 @@ class FultonMarket():
         # Detect equilibration
         converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
         sim_time_converged = converged.sum() * self.sim_length * self.iter_length * 1000
-        printf(f'Detected {sim_time} ns converged.')
+        printf(f'Detected {sim_time_converged} ns converged.')
         if sim_time_converged >= self.convergence_thresh:
             self.converged = True
             printf(f'Convergence criterion of {self.convergence_thresh} met. Stopping here.') 
