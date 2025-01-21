@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name="FM"
+#SBATCH --output="/ocean/projects/bio240035p/dcooper/KOR/logs/FM.%j.%N.out"
+#SBATCH --partition=shared
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=100
+#SBATCH --mem=190G
+#SBATCH --account=bio240071p
+#SBATCH -t 48:00:00
+#SBATCH --mail-user=lmata@hawk.iit.edu
+#SBATCH --mail-type=BEGIN,FAIL,END
+
+source ~/.bashrc
+
+conda activate replica
+
+cd $SLURM_SUBMIT_DIR
+
+echo recovery job for $1
+python recovery.py $1

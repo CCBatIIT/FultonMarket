@@ -1,5 +1,7 @@
 """
 Run this script with OUT_OF_MEMORY error occurs and then continue using RUN_FULTONMARKET.py
+
+Provide the path to the replica exchange directory of the simulation you want to recovery ex: /path/to/replica_exchange/SIMNAME_REP
 """
 import os, sys
 import numpy as np
@@ -11,7 +13,7 @@ from FultonMarket.FultonMarketUtils import truncate_ncdf
 # Set output directory
 output_dir = sys.argv[1]
 save_dir = os.path.join(output_dir, 'saved_variables')
-sub_sim_save_dir = os.path.join(save_dir, str(len(os.listdir(save_dir))))
+sub_sim_save_dir = os.path.join(save_dir, str(len(os.listdir(save_dir))-1))
 
 # Create reporter
 ncdf_fn = os.path.join(output_dir, 'output.ncdf')
@@ -19,7 +21,7 @@ reporter = MultiStateReporter(ncdf_fn)
 reporter.open()
 
 # Truncate
-pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, ncdf_fn, reporter)
+pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, reporter)
 
 # Save
 np.save(os.path.join(sub_sim_save_dir, 'positions.npy'), pos.data)
