@@ -90,10 +90,15 @@ class Randolph():
         ncdf_copy = os.path.join(self.output_dir, 'output_copy.ncdf')
         pos, velos, box_vectors, states, energies, temperatures = truncate_ncdf(self.output_ncdf, ncdf_copy, self.reporter, False)
         np.save(os.path.join(save_no_dir, 'positions.npy'), pos.data)
+        del pos
         np.save(os.path.join(save_no_dir, 'velocities.npy'), velos.data)
+        del velos
         np.save(os.path.join(save_no_dir, 'box_vectors.npy'), box_vectors.data)
+        del box_vectors
         np.save(os.path.join(save_no_dir, 'states.npy'), states.data)
+        del states
         np.save(os.path.join(save_no_dir, 'energies.npy'), energies.data)
+        del energies
         np.save(os.path.join(save_no_dir, 'temperatures.npy'), temperatures)
         
         if self.spring_centers is not None: 
