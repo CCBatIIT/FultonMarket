@@ -422,7 +422,7 @@ class FultonMarket():
         converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
         sim_time_converged = converged.sum() * self.sim_length * self.iter_length * 1000
         printf(f'Detected {sim_time_converged} ns converged.')
-        if sim_time_converged >= self.convergence_thresh:
+        if hasattr(self, 'convergence_thresh') and sim_time_converged >= self.convergence_thresh:
             self.converged = True
             printf(f'Convergence criterion of {self.convergence_thresh} met. Stopping here.') 
         else:
