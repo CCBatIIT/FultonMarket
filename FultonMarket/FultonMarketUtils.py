@@ -70,7 +70,7 @@ def build_sampler_states(self, pos: np.array, box_vec: np.array, velos: np.array
 
 
 
-def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
+def truncate_ncdf(ncdf_in, ncdf_out, out_dir, reporter, is_checkpoint: bool=False):
     print(f'Truncating {ncdf_in} to {ncdf_out}')
 
     src = nc.Dataset(ncdf_in, 'r')
@@ -96,10 +96,16 @@ def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
     for var_name, var in src.variables.items():
         var_out = dest.createVariable(var_name, var.datatype, var.dimensions)
         var_out.setncatts({k: var.getncattr(k) for k in var.ncattrs()})
-    
+        print(var, var.shape)
+        
         if not is_checkpoint:
             if var_name == 'positions':
-                pos = var[:].copy().astype('float16')
+                nframes, nstates, natoms, _ = var.shape
+                pos_fn = os.path.join(out_dir, 'positions.npy')
+                pos = np.memmap(pos_fn, dtype='float32', mode='w+', shape=var.shape)
+                for frame in range(nframes):
+                    pos[frame] = var[frame].data
+                pos.flush()
             elif var_name == 'box_vectors':
                 box_vecs = var[:].copy()
             elif var_name == 'states':
@@ -133,12 +139,12 @@ def truncate_ncdf(ncdf_in, ncdf_out, reporter, is_checkpoint: bool=False):
 
         # Read temperatures
         temps = np.array([state.temperature._value for state in reporter.read_thermodynamic_states()[0]])
+
         
         # Close reporter
         reporter.close()
 
         return pos, velocities, box_vecs, states, energies, temps
-        
         
 
 

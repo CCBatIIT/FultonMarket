@@ -109,6 +109,7 @@ class FultonMarket():
 
         # Repeat pdb positions
         self.init_positions = self.pdb.getPositions(asNumpy=True)
+        self.n_atoms = self.init_positions.shape[0]
         self.init_positions = [self.init_positions for i in range(self.n_replicates)]
 
     
@@ -298,18 +299,20 @@ class FultonMarket():
 
         # Load from .npy files
         try:
-            init_positions = np.load(os.path.join(self.load_dir, 'positions.npy'))[-1] 
-            init_box_vectors = np.load(os.path.join(self.load_dir, 'box_vectors.npy'))[-1] 
-            init_velocities = np.load(os.path.join(self.load_dir, 'velocities.npy')) 
+            box_vectors = np.load(os.path.join(self.load_dir, 'box_vectors.npy'))
+            n_frames = box_vectors.shape[0]
+            init_box_vectors = box_vectors[-1]
+            try: # Try loading normally
+                init_positions = np.load(os.path.join(self.load_dir, 'positions.npy'))[-1]
+            except: # Try loading as a memory map
+                init_positions = np.array(np.memmap(os.path.join(self.load_dir, 'positions.npy'), mode='r', dtype='float32', shape=(n_frames, self.n_replicates, self.n_atoms, 3))[-1])
+            if os.path.exists(os.path.join(self.load_dir, 'velocities.npy')):
+                init_velocities = np.load(os.path.join(self.load_dir, 'velocities.npy')) 
+            else:
+                init_velocities = None
             state_inds = np.load(os.path.join(self.load_dir, 'states.npy'))[-1]
         except:
-            try:
-                init_positions = np.load(os.path.join(self.load_dir, 'positions.npy'))[-1]
-                init_box_vectors = np.load(os.path.join(self.load_dir, 'box_vectors.npy'))[-1]
-                init_velocities = None
-                state_inds = np.load(os.path.join(self.load_dir, 'states.npy'))[-1]
-            except:
-                init_velocities, init_positions, init_box_vectors, state_inds = self._recover_arguments()
+            init_velocities, init_positions, init_box_vectors, state_inds = self._recover_arguments()
         
         # Reshape 
         reshaped_init_positions = np.empty((init_positions.shape))

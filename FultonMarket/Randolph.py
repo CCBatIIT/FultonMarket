@@ -88,9 +88,7 @@ class Randolph():
 
         # Truncate output.ncdf
         ncdf_copy = os.path.join(self.output_dir, 'output_copy.ncdf')
-        pos, velos, box_vectors, states, energies, temperatures = truncate_ncdf(self.output_ncdf, ncdf_copy, self.reporter, False)
-        np.save(os.path.join(save_no_dir, 'positions.npy'), pos.data)
-        del pos
+        pos_memmap, velos, box_vectors, states, energies, temperatures = truncate_ncdf(self.output_ncdf, ncdf_copy, save_no_dir, self.reporter, False)
         np.save(os.path.join(save_no_dir, 'velocities.npy'), velos.data)
         del velos
         np.save(os.path.join(save_no_dir, 'box_vectors.npy'), box_vectors.data)
@@ -106,7 +104,7 @@ class Randolph():
 
         # Truncate output_checkpoint.ncdf
         checkpoint_copy = os.path.join(self.output_dir, 'output_checkpoint_copy.ncdf')
-        truncate_ncdf(self.checkpoint_ncdf, checkpoint_copy, self.reporter, True)
+        truncate_ncdf(self.checkpoint_ncdf, checkpoint_copy, save_no_dir, self.reporter, True)
 
         # Write over previous .ncdf files
         os.system(f'mv {ncdf_copy} {self.output_ncdf}')
