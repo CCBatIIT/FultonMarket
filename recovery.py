@@ -21,7 +21,7 @@ reporter = MultiStateReporter(ncdf_fn)
 reporter.open()
 
 # Truncate
-pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, reporter)
+pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, 'output.ncdf', sub_sim_save_dir, reporter)
 
 # Save
 np.save(os.path.join(sub_sim_save_dir, 'positions.npy'), pos.data)
