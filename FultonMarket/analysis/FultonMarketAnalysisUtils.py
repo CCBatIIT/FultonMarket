@@ -76,8 +76,8 @@ def calculate_weighted_rc(reduced_cartesian, resampled_inds, upper_limit, pca_we
     mean_weighted_rcs_err = []
     for (rc, frame_no, mbar_weight) in zip(reduced_cartesian, resampled_inds[:,1], mbar_weights):
         if frame_no <= upper_limit:
-            mean_weighted_rcs.append(np.mean(rc * pca_weights) * mbar_weight)
-            mean_weighted_rcs_err.append(np.std(rc * pca_weights))
+            mean_weighted_rcs.append(np.mean(np.dot(rc, pca_weights)) * mbar_weight)
+            mean_weighted_rcs_err.append(np.std(rc * pca_weights * mbar_weight))
             
     return np.sum(mean_weighted_rcs), np.sqrt(np.sum(np.array(mean_weighted_rcs_err)**2))
     
@@ -105,8 +105,6 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         printf(f'Top 99.9% of probability includes {len(resampled_inds)} no. of frames')
     else:
         resampled_inds = np.random.choice(range(len(probs)), size=size, replace=replace, p=probs)
-        if len(resampled_inds) == 0:
-            print(probs.shape, size)
         
     resampled_objs = []
     for obj in objs:

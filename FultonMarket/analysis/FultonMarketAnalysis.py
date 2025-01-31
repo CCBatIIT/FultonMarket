@@ -386,7 +386,6 @@ class FultonMarketAnalysis():
                 N_k = np.array([state_energies.shape[0]])
 
                 # Resample
-                print(sim_no, state_no, sim_energies.shape)
                 res_energies, res_mappings, res_inds = resample_with_MBAR(objs=[state_energies, state_map], u_kln=np.array([state_energies[:,state_no]]), N_k=N_k, reshape_weights=state_energies.shape[0], return_inds=True, size=len(sim_energies))
 
 
