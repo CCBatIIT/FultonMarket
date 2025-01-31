@@ -477,7 +477,7 @@ class FultonMarketAnalysis():
             try:
                 pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:]
             except:
-                pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[self.skip:]
+                pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[self.skip:]
             assert pos_i.shape[0] > 0, f'{storage_dir} is invalid, please delete and resume'            
             self.positions.append(pos_i)
     
