@@ -76,8 +76,8 @@ def calculate_weighted_rc(reduced_cartesian, resampled_inds, upper_limit, pca_we
     mean_weighted_rcs_err = []
     for (rc, frame_no, mbar_weight) in zip(reduced_cartesian, resampled_inds[:,1], mbar_weights):
         if frame_no <= upper_limit:
-            mean_weighted_rcs.append(np.mean(np.dot(rc, pca_weights)) * mbar_weight)
-            mean_weighted_rcs_err.append(np.std(rc * pca_weights * mbar_weight))
+            mean_weighted_rcs.append(np.mean(rc * pca_weights) * mbar_weight)
+            mean_weighted_rcs_err.append(np.std(rc * pca_weights))
             
     return np.sum(mean_weighted_rcs), np.sqrt(np.sum(np.array(mean_weighted_rcs_err)**2))
     
