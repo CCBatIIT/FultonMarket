@@ -54,16 +54,7 @@ class FultonMarketAnalysis():
         printf(f"Shapes of temperature arrays: {[(i, temp.shape) for i, temp in enumerate(self.temperatures_list)]}")
         self.state_inds = [np.load(os.path.join(storage_dir, 'states.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        self.unshaped_positions = []
-        for i, storage_dir in enumerate(self.storage_dirs):
-            try:
-                pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:]
-            except:
-                pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[skip:]
-            assert pos_i.shape[0] > 0, f'{storage_dir} is invalid, please delete and resume'
-            self.unshaped_positions.append(pos_i)            
-        self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-            
+        
         # Reshape lists 
         self.energies = self._reshape_list(self.unshaped_energies)
 
@@ -480,8 +471,17 @@ class FultonMarketAnalysis():
         # Load
         self.positions = []
         self.box_vectors = []
-        for sim_no, storage_dir in enumerate(self.storage_dirs):
-            self.positions.append(np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:])
+        for i, storage_dir in enumerate(self.storage_dirs):
+            
+            # Get positions
+            try:
+                pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:]
+            except:
+                pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[self.skip:]
+            assert pos_i.shape[0] > 0, f'{storage_dir} is invalid, please delete and resume'            
+            self.positions.append(pos_i)
+    
+            # Get box vectors
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
 
 
