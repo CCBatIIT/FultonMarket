@@ -24,6 +24,7 @@ reporter.open()
 pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, 'output.ncdf', sub_sim_save_dir, reporter)
 
 # Save
+assert energies.shape[0] > 10, 'this output.ncdf does not have data, please delete and resume simulation.'
 np.save(os.path.join(sub_sim_save_dir, 'positions.npy'), pos.data)
 np.save(os.path.join(sub_sim_save_dir, 'velocities.npy'), velos.data)
 np.save(os.path.join(sub_sim_save_dir, 'box_vectors.npy'), box_vecs.data)

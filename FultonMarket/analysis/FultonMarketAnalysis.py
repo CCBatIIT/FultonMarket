@@ -54,7 +54,13 @@ class FultonMarketAnalysis():
         printf(f"Shapes of temperature arrays: {[(i, temp.shape) for i, temp in enumerate(self.temperatures_list)]}")
         self.state_inds = [np.load(os.path.join(storage_dir, 'states.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
         self.unshaped_energies = [np.load(os.path.join(storage_dir, 'energies.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
-        self.unshaped_positions = [np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
+        self.unshaped_positions = []
+        for i, storage_dir in enumerate(self.storage_dirs):
+            try:
+                pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:]
+            except:
+                pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[skip:]
+            self.unshaped_positions.append(pos_i)            
         self.unshaped_box_vectors = [np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:] for storage_dir in self.storage_dirs]
             
         # Reshape lists 
@@ -355,55 +361,47 @@ class FultonMarketAnalysis():
 
         # Iterate throught simulations to backfill energies
         backfilled_energies = []
-        backfilled_potentials = []
         backfilled_map = []
         for sim_no, sim_interpolate_inds in enumerate(self.interpolation_inds):
             
             #Create an array for this simulations energies, in the final simulation's shape on axis 1, 2
             sim_energies = np.zeros((self.energies[sim_no].shape[0], self.temperatures.shape[0], self.temperatures.shape[0]))
-            sim_reduced_potentials = np.zeros((self.energies[sim_no].shape[0], self.temperatures.shape[0], self.temperatures.shape[0]))
             sim_map = np.zeros((self.map[sim_no].shape[0], self.temperatures.shape[0], 3))
 
             #Fill this array with the values that exist
             for i, ind in enumerate(interpolation_map[sim_no]):
                 sim_energies[:, ind, interpolation_map[sim_no]] = self.energies[sim_no][:, i, :]
-                sim_reduced_potentials[:, ind, interpolation_map[sim_no]] = self.energies[sim_no][:, i, :]
                 sim_map[:,ind] = self.map[sim_no][:,i]
 
             #Fill in rows and columns 
             for state_no in sim_interpolate_inds:
 
                 # Get state-specific objects to resample from
-                filled_reduced_potentials = np.concatenate([self.energies[sim_no] for sim_no in filled_sim_inds])
                 filled_energies = np.concatenate([self.energies[sim_no] for sim_no in filled_sim_inds])
                 filled_map = np.concatenate([self.map[sim_no] for sim_no in filled_sim_inds])
                 
-                state_reduced_potentials = filled_reduced_potentials[:, state_no]
                 state_energies = filled_energies[:, state_no]
                 state_map = filled_map[:, state_no]
 
-                N_k = np.array([state_reduced_potentials.shape[0]])
+                N_k = np.array([state_energies.shape[0]])
 
                 # Resample
-                res_potentials, res_energies, res_mappings, res_inds = resample_with_MBAR(objs=[state_reduced_potentials, state_energies, state_map], u_kln=np.array([state_reduced_potentials[:,state_no]]), N_k=N_k, reshape_weights=state_reduced_potentials.shape[0], return_inds=True, size=len(sim_energies))
+                print(sim_no, state_no, sim_energies.shape)
+                res_energies, res_mappings, res_inds = resample_with_MBAR(objs=[state_energies, state_map], u_kln=np.array([state_energies[:,state_no]]), N_k=N_k, reshape_weights=state_energies.shape[0], return_inds=True, size=len(sim_energies))
 
 
                 # Assign resampled configurations to empty rows/cols
                 sim_energies[:, state_no] = res_energies.copy()
-                sim_reduced_potentials[:, state_no] = res_potentials.copy()
                 sim_map[:, state_no] = res_mappings.copy()
 
                 sim_energies[:, :, state_no] = [filled_energies[resampled_ind, :, state_no] for resampled_ind in res_inds]
-                sim_reduced_potentials[:, :, state_no] = [filled_reduced_potentials[resampled_ind, :, state_no] for resampled_ind in res_inds]
 
 
             backfilled_energies.append(sim_energies)
-            backfilled_potentials.append(sim_reduced_potentials)
             backfilled_map.append(sim_map)
 
         # Concatenate
         self.energies = np.concatenate(backfilled_energies, axis=0)
-        self.energies = np.concatenate(backfilled_potentials, axis=0)
         self.map = np.concatenate(backfilled_map, axis=0).astype(int)
         self.n_frames = self.energies.shape[0]
     

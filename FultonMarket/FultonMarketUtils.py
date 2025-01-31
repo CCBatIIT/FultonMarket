@@ -96,7 +96,6 @@ def truncate_ncdf(ncdf_in, ncdf_out, out_dir, reporter, is_checkpoint: bool=Fals
     for var_name, var in src.variables.items():
         var_out = dest.createVariable(var_name, var.datatype, var.dimensions)
         var_out.setncatts({k: var.getncattr(k) for k in var.ncattrs()})
-        print(var, var.shape)
         
         if not is_checkpoint:
             if var_name == 'positions':
