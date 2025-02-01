@@ -12,7 +12,7 @@ from FultonMarketUtils import *
 from Randolph import Randolph
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'analysis'))
 from FultonMarketAnalysis import FultonMarketAnalysis
-from FultonMarketAnalysisUtils import PCA_convergence_detection
+from FultonMarketAnalysisUtils import PCA_convergence_detection, plot_MRC
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
@@ -404,22 +404,37 @@ class FultonMarket():
         rc_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc.npy')
         rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
 
-        
         # Interact with FultonmarketAnalysis
         analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resids=self.resids) 
         analysis.determine_equilibration()
         analysis.importance_resampling()
+        analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
         analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
         analysis.get_PCA()
 
         # Get mean weighted reduced cartesians
-        domains = np.arange(int(1000 * self.iter_length * 1000), int(domain + self.sim_length * 10 * self.iter_length * 1000), int(self.sim_length * 10))
+        domains = np.zeros(len(analysis.unshaped_energies), int)
         mean_weighted_rc = np.empty(len(domains))
         mean_weighted_rc_err = np.empty(len(domains))
-        for i, domain in enumerate(domains):
-            mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
+        frame_counter = 0
+        for i, e in enumerate(self.analysis.unshaped_energies):
+        
+            # Analyze simulation domain
+            n_frames, n_states = e.shape[:2]
+            sim_time_per_frame = iter_length * n_states
+            sub_sim_length = sim_time_per_frame * n_frames
+            domain = sub_sim_length + domains[i-1]
+            domains[i] = domain
+            frame_slice = n_frames + frame_counter
+            frame_counter += n_frames
+        
+            # Get mean weighted rc
+            mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=frame_slice, return_weighted_rc=True)
+
+        # Save mean weighted rc
         np.save(rc_out, mean_weighted_rc)
         np.save(rc_err_out, mean_weighted_rc_err)
+        plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png')
 
         # Detect equilibration
         converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)

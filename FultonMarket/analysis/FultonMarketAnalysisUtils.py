@@ -14,12 +14,27 @@ from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
+import warnings
+warnings.filterwarnings('ignore')
 
 printf = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
+
+def plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig: str=None):
+
+    fig, ax = plt.subplots()
+    
+    ax.plot(domains, mean_weighted_rc, color='k')
+    ax.errorbar(domains, np.abs( mean_weighted_rc - mean_weighted_rc[-1]), yerr=mean_weighted_rc_err, color='k', capsize=3)
+    ax.set_ylabel('| MRC(t) - MRC(T) |')
+    ax.set_xlabel('Total sim time (ns')
+    plt.show()
+
+    if savefig is not None:
+        fig.savefig(savefig)
 
 def PCA_convergence_detection(rc, rc_err):
 
@@ -71,15 +86,13 @@ def calculate_weighted_rc(reduced_cartesian, resampled_inds, upper_limit, pca_we
     assert reduced_cartesian.shape[0] == len(resampled_inds), f'{reduced_cartesian.shape}, {resampled_inds.shape}'
     assert reduced_cartesian.shape[0] == len(mbar_weights)
     assert reduced_cartesian.shape[1] == len(pca_weights)
-
+    
     mean_weighted_rcs = []
-    mean_weighted_rcs_err = []
     for (rc, frame_no, mbar_weight) in zip(reduced_cartesian, resampled_inds[:,1], mbar_weights):
         if frame_no <= upper_limit:
-            mean_weighted_rcs.append(np.mean(np.dot(rc, pca_weights)) * mbar_weight)
-            mean_weighted_rcs_err.append(np.std(rc * pca_weights * mbar_weight))
+            mean_weighted_rcs.append(np.mean(rc * pca_weights) * pca_weights)
             
-    return np.sum(mean_weighted_rcs), np.sqrt(np.sum(np.array(mean_weighted_rcs_err)**2))
+    return np.mean(mean_weighted_rcs), np.std(mean_weighted_rcs) / np.sqrt(reduced_cartesian.shape[0])
     
 
 @staticmethod

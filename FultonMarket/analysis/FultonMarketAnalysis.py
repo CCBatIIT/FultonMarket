@@ -161,24 +161,28 @@ class FultonMarketAnalysis():
     
         
 
-    def plot_weights(self, state_no: int=0, figsize: tuple=(4,4)):
+    def plot_weights(self, figsize: tuple=(25,10), savefig: str=None):
+        """
+        """
         # Reshape weights
-        self.weights = self.weights.copy().reshape(self.temperatures.shape[0], self.energies.shape[0] - self.t0, self.temperatures.shape[0])[:,:,state_no].T
-        
-        # Get sum of weights by state
-        sum_weights = self.weights.sum(axis=0)
+        reshaped_weights = np.zeros((len(self.temperatures), len(self.energies)))
+        for ((state, frame), weight) in zip(self.flat_inds, self.weights[:,0]):
+            reshaped_weights[state, frame] = weight
         
         # Plot
         fig, ax = plt.subplots(figsize=figsize)
-        ax.bar(range(sum_weights.shape[0]), sum_weights, color='k')
-        ax.set_ylabel('MBAR Weights')
-        ax.set_xlabel('Temperature (K)')
-        ax.set_xticks(range(self.temperatures.shape[0])[::10], self.temperatures[::10], rotation=90)
-        fig.tight_layout()
+        ax.imshow(reshaped_weights[:, ::10])
+        ax.vlines(self.flat_inds[:,1].min()/10, 0, self.temperatures.shape[0], color='red', label='equilibration')
+        ax.set_yticks(np.arange(self.temperatures.shape[0])[::20], self.temperatures[::20])
+        ax.set_xlabel('Replicate Simulation Time (ns)')
+        ax.set_ylabel('Temperature (K)')
+        ax.set_title('Truncated MBAR weights')
+        plt.legend(loc='upper left')
         plt.show()
-        
-        return fig, ax
-    
+        fig.tight_layout()
+        if savefig is not None:
+            fig.savefig(savefig)
+            
     
     
     def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, return_traj: bool=False):
