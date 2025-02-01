@@ -47,6 +47,8 @@ class FultonMarketAnalysis():
         self.top = md.load_pdb(self.pdb).topology
         if resids is not None:
             self.resids = [[self.top.residue(i).resSeq for i in range(self.top.n_residues)].index(resid) for resid in resids] # convert to mdtraj resids
+        else:
+            self.resids = None
         
         # Load saved variables
         self.temperatures_list = [np.round(np.load(os.path.join(storage_dir, 'temperatures.npy'), mmap_mode='r'), decimals=2) for storage_dir in self.storage_dirs]
@@ -93,7 +95,7 @@ class FultonMarketAnalysis():
         """
         
         # Determine equilibration
-        self._determine_equilibration()
+        self.determine_equilibration()
 
         # Get average energies
         state_energies = np.empty((self.energies.shape[0], self.energies.shape[1]))
@@ -121,7 +123,7 @@ class FultonMarketAnalysis():
 
         if post_equil:
             if not hasattr(self, 't0'):
-                self._determine_equilibration()
+                self.determine_equilibration()
             state_energies = np.array([self.get_state_energies(state_index=state_no)[self.t0:] for state_no in range(self.energies.shape[1])]).T
         else:
             state_energies = np.array([self.get_state_energies(state_index=state_no) for state_no in range(self.energies.shape[1])]).T
