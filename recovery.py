@@ -8,6 +8,14 @@ import numpy as np
 import netCDF4 as nc
 from openmmtools.multistate import MultiStateReporter
 from FultonMarket.FultonMarketUtils import truncate_ncdf
+import random
+import string
+
+def generate_random_string(length=6):
+  characters = string.ascii_letters + string.digits
+  return ''.join(random.choice(characters) for _ in range(length))
+
+random_string = generate_random_string()
 
 
 # Set output directory
@@ -21,7 +29,8 @@ reporter = MultiStateReporter(ncdf_fn)
 reporter.open()
 
 # Truncate
-pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, 'output.ncdf', sub_sim_save_dir, reporter)
+pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, f'{random_string}.ncdf', sub_sim_save_dir, reporter)
+os.remove(f'{random_string}.ncdf')
 
 # Save
 assert energies.shape[0] > 10, 'this output.ncdf does not have data, please delete and resume simulation.'
