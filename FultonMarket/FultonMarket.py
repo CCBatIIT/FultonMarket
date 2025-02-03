@@ -434,7 +434,7 @@ class FultonMarket():
         # Save mean weighted rc
         np.save(rc_out, mean_weighted_rc)
         np.save(rc_err_out, mean_weighted_rc_err)
-        plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png')
+        plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png'))
 
         # Detect equilibration
         converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
