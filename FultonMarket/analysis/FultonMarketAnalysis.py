@@ -90,12 +90,9 @@ class FultonMarketAnalysis():
         return state_energies
     
     
-    def get_average_energy(self, plot: bool=False, figsize: tuple=(6,6)):
+    def get_average_energy(self, plot: bool=False, figsize: tuple=(6,6), equilibration_method: str='PCA'):
         """
         """
-        
-        # Determine equilibration
-        self.determine_equilibration()
 
         # Get average energies
         state_energies = np.empty((self.energies.shape[0], self.energies.shape[1]))
@@ -105,6 +102,11 @@ class FultonMarketAnalysis():
         
         # Plot if specified:
         if plot:
+            
+            # Determine equilibration
+            self.determine_equilibration(equilibration_method=equilibration_method)
+
+            # Make plot
             fig, ax = plt.subplots(figsize=figsize)
             ax.plot(range(self.average_energies.shape[0]), self.average_energies, color='k')
             ax.vlines(self.t0, self.average_energies.min(), self.average_energies.max(), color='r', label='equilibration')
@@ -114,9 +116,10 @@ class FultonMarketAnalysis():
             ax.set_xlabel('Iterations')
             fig.tight_layout()
             plt.show
-            return self.average_energies[self.t0:], fig, ax
+            return self.average_energies, fig, ax
+            
         else:
-            return self.average_energies[self.t0:]
+            return self.average_energies
         
         
     def plot_energy_distributions(self, figsize: tuple=(8,4), post_equil: bool=False):  
@@ -140,16 +143,11 @@ class FultonMarketAnalysis():
         return fig, ax 
     
     
-    
     def importance_resampling(self, n_samples:int=-1, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None, replace: bool=False):
         """
-        """           
-        if not hasattr(self, 'equilibration_method'):
-            self.equilibration_method = equilibration_method
-        
+        """                  
         #Ensure equilibration has been detected
-        if not hasattr(self, 't0'):
-            self.determine_equilibration()
+        self.determine_equilibration(equilibration_method=equilibration_method)
         
         # Create map to match shape of weights
   
@@ -159,19 +157,23 @@ class FultonMarketAnalysis():
         N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
         self.resampled_inds, self.weights, self.resampled_weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, return_resampled_weights=True, specify_state=0, replace=replace)
     
-        
+    def reshape_weights(self):
+        # Reshape weights
+        self.reshaped_weights = np.zeros((len(self.temperatures), len(self.energies)))
+        for ((state, frame), weight) in zip(self.flat_inds, self.weights[:,0]):
+            self.reshaped_weights[state, frame] = weight
 
+    
     def plot_weights(self, figsize: tuple=(25,10), savefig: str=None):
         """
         """
+
         # Reshape weights
-        reshaped_weights = np.zeros((len(self.temperatures), len(self.energies)))
-        for ((state, frame), weight) in zip(self.flat_inds, self.weights[:,0]):
-            reshaped_weights[state, frame] = weight
-        
+        self.reshape_weights()
+
         # Plot
         fig, ax = plt.subplots(figsize=figsize)
-        ax.imshow(reshaped_weights[:, ::10])
+        ax.imshow(self.reshaped_weights[:, ::10])
         ax.vlines(self.flat_inds[:,1].min()/10, 0, self.temperatures.shape[0], color='red', label='equilibration')
         ax.set_yticks(np.arange(self.temperatures.shape[0])[::20], self.temperatures[::20])
         ax.set_xlabel('Replicate Simulation Time (ns)')
@@ -411,12 +413,9 @@ class FultonMarketAnalysis():
         starting from each of the first 50 frames
         returns the likely best index of equilibration
         """
-
-        if not hasattr(self, 'equilibration_method'):
-            self.equilibration_method = equilibration_method
  
         # PCA
-        if self.equilibration_method == 'PCA':
+        if equilibration_method == 'PCA':
             self.get_PCA(state_no=0, stride=stride, explained_variance_threshold=0.9)
             
             # Iterate through PCs to detect equilibration
@@ -427,13 +426,16 @@ class FultonMarketAnalysis():
     
             # Save equilibration/uncorrelated inds to new variables
             self.t0 = np.sum(equil_times  * (self.explained_variance / self.explained_variance.sum())).astype(int) * stride
+
+        elif equilibration_method == 'energy':
+            self.t0 = detect_energy_equil(self.get_average_energy())
          
-        elif self.equilibration_method == 'None':
+        elif equilibration_method == 'None':
             self.t0 = 0
         else:
             print('equilibration_method must be either PCA or None')
 
-        printf(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {self.equilibration_method}')
+        printf(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {equilibration_method}')
 
     
 

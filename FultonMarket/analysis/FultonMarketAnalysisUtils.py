@@ -158,6 +158,11 @@ def detect_PC_equil(pc, reduced_cartesian):
 
     return t0
 
+def detect_energy_equil(avg_energies):
+    t0, _, _ = detect_equilibration(avg_energies)
+
+    return t0
+
 def get_energies_without_harmonic(energies, pos, centers, T, spring_constant):
     x_dis = np.sum((centers[:,0] - pos[:,0])**2, axis=0)
     y_dis = np.sum((centers[:,1] - pos[:,1])**2, axis=0)
