@@ -33,7 +33,7 @@ def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_sam
 
     # Importance Resampling
     analysis.determine_equilibration()
-    analysis.importance_resampling()
+    analysis.importance_resampling(n_samples=n_samples, replace=replace)
 
     # Write out
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)

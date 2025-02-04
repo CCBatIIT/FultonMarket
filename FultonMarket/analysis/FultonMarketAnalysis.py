@@ -90,7 +90,7 @@ class FultonMarketAnalysis():
         return state_energies
     
     
-    def get_average_energy(self, plot: bool=False, figsize: tuple=(6,6), equilibration_method: str='PCA'):
+    def get_average_energy(self, plot: bool=False, figsize: tuple=(6,6), equilibration_method: str='energy'):
         """
         """
 
@@ -143,7 +143,7 @@ class FultonMarketAnalysis():
         return fig, ax 
     
     
-    def importance_resampling(self, n_samples:int=-1, equilibration_method: str='PCA', specify_state:int=0, upper_lim: int=None, replace: bool=False):
+    def importance_resampling(self, n_samples:int=-1, equilibration_method: str='energy', specify_state:int=0, replace: bool=False):
         """
         """                  
         #Ensure equilibration has been detected
@@ -153,9 +153,10 @@ class FultonMarketAnalysis():
   
         # Get MBAR weights
         self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
-        u_kln = self.energies[self.t0:].T
-        N_k = [self.energies[self.t0:].shape[0] for i in range(self.energies.shape[1])]
+        u_kln = np.array([self.energies[self.t0:,:,k].flatten() for k in range(self.energies.shape[2])])
+        N_k = np.array([self.energies[self.t0:].shape[0] for i in range(self.energies.shape[2])])
         self.resampled_inds, self.weights, self.resampled_weights = resample_with_MBAR(objs=[self.flat_inds], u_kln=u_kln, N_k=N_k, size=n_samples, return_inds=False, return_weights=True, return_resampled_weights=True, specify_state=0, replace=replace)
+
     
     def reshape_weights(self):
         # Reshape weights
@@ -406,7 +407,7 @@ class FultonMarketAnalysis():
     
     
 
-    def determine_equilibration(self, equilibration_method: str='PCA', stride: int=10):
+    def determine_equilibration(self, equilibration_method: str='energy', stride: int=10):
         """
         Automated equilibration detection
         suggests an equilibration index (with respect to the whole simulation) by detecting equilibration for the average energies
