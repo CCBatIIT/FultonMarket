@@ -417,7 +417,7 @@ class FultonMarket():
         mean_weighted_rc = np.empty(len(domains))
         mean_weighted_rc_err = np.empty(len(domains))
         frame_counter = 0
-        for i, e in enumerate(self.analysis.unshaped_energies):
+        for i, e in enumerate(analysis.unshaped_energies):
         
             # Analyze simulation domain
             n_frames, n_states = e.shape[:2]
