@@ -421,8 +421,8 @@ class FultonMarket():
         
             # Analyze simulation domain
             n_frames, n_states = e.shape[:2]
-            sim_time_per_frame = iter_length * n_states
-            sub_sim_length = sim_time_per_frame * n_frames
+            sim_time_per_frame = self.iter_length * len(analysis.temperatures)
+            sub_sim_length = sim_time_per_frame * analysis.energies.shape[0]
             domain = sub_sim_length + domains[i-1]
             domains[i] = domain
             frame_slice = n_frames + frame_counter
