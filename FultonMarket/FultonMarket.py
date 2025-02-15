@@ -407,7 +407,7 @@ class FultonMarket():
         # Interact with FultonmarketAnalysis
         analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resids=self.resids) 
         analysis.determine_equilibration()
-        analysis.importance_resampling()
+        analysis.importance_resampling(n_samples=10000)
         analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
         analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
         analysis.get_PCA()
