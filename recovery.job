@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name="FM"
-#SBATCH --output="/ocean/projects/bio240035p/dcooper/KOR/logs/FM.%j.%N.out"
-#SBATCH --partition=shared
+#SBATCH --job-name="RECOVERY"
+#SBATCH --output="/ocean/projects/bio240071p/dcooper/KOR/logs/RECOVERY.%j.%N.out"
+#SBATCH --partition=RM
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=100
 #SBATCH --mem=190G
 #SBATCH --account=bio240071p
 #SBATCH -t 48:00:00
-#SBATCH --mail-user=lmata@hawk.iit.edu
-#SBATCH --mail-type=BEGIN,FAIL,END
+#SBATCH --mail-user=dcooper6@hawk.iit.edu
+#SBATCH --mail-type=FAIL,END
 
 source ~/.bashrc
 
