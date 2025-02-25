@@ -143,7 +143,7 @@ class FultonMarketAnalysis():
         return fig, ax 
     
     
-    def importance_resampling(self, n_samples:int=-1, equilibration_method: str='energy', specify_state:int=0, replace: bool=False):
+    def importance_resampling(self, n_samples:int=-1, equilibration_method: str='energy', specify_state:int=0, replace: bool=True):
         """
         """                  
         #Ensure equilibration has been detected

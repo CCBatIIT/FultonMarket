@@ -25,7 +25,7 @@ import jax
 
 
 # Multiprocessing method
-def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_samples, replace):
+def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace):
 
    
     # Initialize
@@ -37,6 +37,22 @@ def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_sam
 
     # Write out
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
+
+    # Get PCA
+    analysis.get_PCA()
+
+    # Test across different domains
+    domains = np.arange(1000, analysis.energies.shape[0]+250, 250)
+    mean_weighted_rc = np.empty(len(domains))
+    mean_weighted_rc_err = np.empty(len(domains))
+    for i, domain in enumerate(domains):
+        mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
+
+    # Save
+    mrc = np.array([domains, mean_weighted_rc, mean_weighted_rc_err])
+    np.save(mrc_out, mrc)
+    np.save(inds_out, analysis.resampled_inds)
+    
     del analysis    
 
 
@@ -59,6 +75,10 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(output_dir, 'dcd'))
     if not os.path.exists(os.path.join(output_dir, 'mbar_weights')):
         os.mkdir(os.path.join(output_dir, 'mbar_weights'))
+    if not os.path.exists(os.path.join(output_dir, 'mrc')):
+        os.mkdir(os.path.join(output_dir, 'mrc'))
+    if not os.path.exists(os.path.join(output_dir, 'inds')):
+        os.mkdir(os.path.join(output_dir, 'inds'))
 
     # Set up arguments
     mpargs = []
@@ -68,6 +88,8 @@ if __name__ == '__main__':
         pdb_out = os.path.join(output_dir, 'pdb', "_".join(sim.split('_')[:-1]) + '.pdb')
         dcd_out = os.path.join(output_dir, 'dcd', "_".join(sim.split('_')[:-1]) + '.dcd')
         weights_out = os.path.join(output_dir, 'mbar_weights', "_".join(sim.split('_')[:-1]) + '.npy')
+        inds_out = os.path.join(output_dir, 'inds', "_".join(sim.split('_')[:-1]) + '.npy')
+        mrc_out = os.path.join(output_dir, 'mrc', "_".join(sim.split('_')[:-1]) + '.npy')
         if not os.path.exists(dcd_out):
             
             # Sim input
@@ -85,7 +107,7 @@ if __name__ == '__main__':
                 mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_samples, replace))
 
             else:
-                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_samples, replace)
+                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace)
 
     
     # Multiprocess, if specified

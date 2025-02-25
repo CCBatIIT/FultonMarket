@@ -36,17 +36,17 @@ def plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig: str=None)
     if savefig is not None:
         fig.savefig(savefig)
 
+
 def PCA_convergence_detection(rc, rc_err):
 
     converged = np.array([False for i in range(len(rc)-1)])
     for i, (rc_i, rc_err_i) in enumerate(zip(rc[:-1], rc_err[:-1])):
-        if rc_i - rc_err_i <= 0:
+        if (rc_i > rc[-1] and rc_i - rc_err_i <= rc[-1]) or (rc_i <= rc[-1] and rc_i + rc_err_i >= rc[-1]):
             converged[i] = True
         else:
             converged[:i+1] = False
 
     return converged
-
 
 
 def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, dcd_out):
