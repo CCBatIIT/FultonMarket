@@ -30,16 +30,23 @@ reporter.open()
 
 # Truncate
 pos, velos, box_vecs, states, energies, temps = truncate_ncdf(ncdf_fn, f'{random_string}.ncdf', sub_sim_save_dir, reporter)
-os.remove(f'{random_string}.ncdf')
 
 # Save
 assert energies.shape[0] > 10, 'this output.ncdf does not have data, please delete and resume simulation.'
-np.save(os.path.join(sub_sim_save_dir, 'positions.npy'), pos.data)
+print('Trying to save to', sub_sim_save_dir, flush=True)
 np.save(os.path.join(sub_sim_save_dir, 'velocities.npy'), velos.data)
+print('Saved velos', flush=True)
 np.save(os.path.join(sub_sim_save_dir, 'box_vectors.npy'), box_vecs.data)
+print('Saved box_vectors', flush=True)
 np.save(os.path.join(sub_sim_save_dir, 'states.npy'), states.data)
+print('Saved states', flush=True)
 np.save(os.path.join(sub_sim_save_dir, 'energies.npy'), energies.data)
+print('Saved energies', flush=True)
 np.save(os.path.join(sub_sim_save_dir, 'temperatures.npy'), temps.data)
+print('Saved temps', flush=True)
+
+if os.path.exists(f'{random_string}.ncdf'):
+    os.remove(f'{random_string}.ncdf')
 
 
 

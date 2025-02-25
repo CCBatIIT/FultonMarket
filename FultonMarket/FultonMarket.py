@@ -407,7 +407,7 @@ class FultonMarket():
         # Interact with FultonmarketAnalysis
         analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resids=self.resids) 
         analysis.determine_equilibration()
-        analysis.importance_resampling()
+        analysis.importance_resampling(n_samples=1000)
         analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
         analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
         analysis.get_PCA()
@@ -417,12 +417,12 @@ class FultonMarket():
         mean_weighted_rc = np.empty(len(domains))
         mean_weighted_rc_err = np.empty(len(domains))
         frame_counter = 0
-        for i, e in enumerate(self.analysis.unshaped_energies):
+        for i, e in enumerate(analysis.unshaped_energies):
         
             # Analyze simulation domain
             n_frames, n_states = e.shape[:2]
-            sim_time_per_frame = iter_length * n_states
-            sub_sim_length = sim_time_per_frame * n_frames
+            sim_time_per_frame = self.iter_length * len(analysis.temperatures)
+            sub_sim_length = sim_time_per_frame * analysis.energies.shape[0]
             domain = sub_sim_length + domains[i-1]
             domains[i] = domain
             frame_slice = n_frames + frame_counter

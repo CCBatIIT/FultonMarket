@@ -102,6 +102,7 @@ def truncate_ncdf(ncdf_in, ncdf_out, out_dir, reporter, is_checkpoint: bool=Fals
                 nframes, nstates, natoms, _ = var.shape
                 pos_fn = os.path.join(out_dir, 'positions.npy')
                 pos = np.memmap(pos_fn, dtype='float32', mode='w+', shape=var.shape)
+                print(f'Saving positions to {pos_fn} with shape {var.shape}')
                 for frame in range(nframes):
                     pos[frame] = var[frame].data
                 pos.flush()
