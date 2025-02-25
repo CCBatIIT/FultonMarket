@@ -147,10 +147,9 @@ class FultonMarketAnalysis():
         """
         """                  
         #Ensure equilibration has been detected
-        self.determine_equilibration(equilibration_method=equilibration_method)
-        
-        # Create map to match shape of weights
-  
+        if not hasattr(self, 't0'):
+            self.determine_equilibration(equilibration_method=equilibration_method)
+          
         # Get MBAR weights
         self.flat_inds = np.array([[state, ind] for ind in range(self.t0, self.energies.shape[0]) for state in range(self.energies.shape[1])])
         u_kln = np.array([self.energies[self.t0:,:,k].flatten() for k in range(self.energies.shape[2])])
@@ -462,13 +461,18 @@ class FultonMarketAnalysis():
             printf(f'Computed reduced cartesian with shape: {self.reduced_cartesian.shape}')
 
     
-    def get_weighted_reduced_cartesian(self, rc_upper_limit: None, return_weighted_rc: bool=False):
+    def get_weighted_reduced_cartesian(self, rc_upper_limit: None, return_weighted_rc: bool=False, use_state: bool=False, stride: int=1):
         """
         """
         if rc_upper_limit is None:
             rc_upper_limit = np.inf
-    
-        self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, self.resampled_inds, rc_upper_limit, self.explained_variance, self.resampled_weights)
+
+        if use_state:
+            state_flat_inds = np.array([[0, ind] for ind in range(self.energies.shape[0])])[::stride]
+            state_weights = np.repeat(1, state_flat_inds.shape[0])
+            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, state_flat_inds, rc_upper_limit, self.explained_variance, state_weights)
+        else:
+            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, self.resampled_inds, rc_upper_limit, self.explained_variance, self.resampled_weights)
 
         if return_weighted_rc:
             return self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err
