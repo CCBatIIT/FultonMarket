@@ -276,7 +276,6 @@ class FultonMarket():
             self.thermodynamic_states = [ThermodynamicState(system=self.system, temperature=self.temperatures[0], pressure=1.0*unit.bar)] 
 
 
-
     def _save_sub_simulation(self):
         
         # Save temperatures
@@ -457,7 +456,7 @@ class FultonMarket():
                 self.finished = True
         elif self.total_sim_time is not None:
             if self.sim_no >= self.total_n_sims:
-                self.finished = False
+                self.finished = True
         
         
 
