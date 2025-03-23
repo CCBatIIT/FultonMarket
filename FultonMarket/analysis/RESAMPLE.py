@@ -104,7 +104,7 @@ if __name__ == '__main__':
                 replace = True
 
             if parallel:
-                mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, n_samples, replace))
+                mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace))
 
             else:
                 resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     # Multiprocess, if specified
     if parallel:
         counter = 0
-        while len(os.listdir(os.path.join(output_dir, 'pdb'))) < len(sims) and counter < 5:
+        while len(os.listdir(os.path.join(output_dir, 'dcd'))) < len(sims) and counter < 10:
             try:
                 n_threads = int(os.environ('NUM_THREADS'))
             except:
