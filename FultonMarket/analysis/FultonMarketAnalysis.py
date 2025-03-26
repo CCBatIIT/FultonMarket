@@ -1,5 +1,6 @@
 # Imports
-import os, sys, math, glob
+import os, sys, math, glob, jax 
+import jax.numpy as jnp
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
@@ -22,6 +23,8 @@ get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
 rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 
+jax.print_environment_info()
+printf(f"Default JAX backend is {jax.default_backend()}")
 
 class FultonMarketAnalysis():
     """
@@ -30,7 +33,16 @@ class FultonMarketAnalysis():
     methods:
         init: input_dir
     """
-    def __init__(self, input_dir:str, pdb: str, skip: int=10, scheduling: str='Temperature', resids: List[int]=None, upper_limit: int=None):
+    def __init__(self, 
+                 input_dir:str, 
+                 pdb: str, 
+                 skip: int=10, 
+                 scheduling: str='Temperature', 
+                 resSeqs: List[int]=None, 
+                 sele_str: str=None,
+                 upper_limit: int=None, 
+                 remove_harmonic: bool=False, 
+                 spring_centers: np.array=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
         """
@@ -45,10 +57,14 @@ class FultonMarketAnalysis():
         self.storage_dirs = sorted(glob.glob(self.stor_dir + '/*'), key=lambda x: int(x.split('/')[-1]))
         self.pdb = pdb 
         self.top = md.load_pdb(self.pdb).topology
-        if resids is not None:
-            self.resids = [[self.top.residue(i).resSeq for i in range(self.top.n_residues)].index(resid) for resid in resids] # convert to mdtraj resids
+        if resSeqs is not None:
+            self.resSeqs = [[self.top.residue(i).resSeq for i in range(self.top.n_residues)].index(resSeq) for resSeq in resSeqs] # convert to mdtraj resSeqs
         else:
-            self.resids = None
+            self.resSeqs = None
+        if sele_str is not None:
+            self.sele_str = sele_str
+        else:
+            self.sele_str = None
         
         # Load saved variables
         self.temperatures_list = [np.round(np.load(os.path.join(storage_dir, 'temperatures.npy'), mmap_mode='r'), decimals=2) for storage_dir in self.storage_dirs]
@@ -73,10 +89,13 @@ class FultonMarketAnalysis():
             self.energies = self.energies[:upper_limit+1]
             self.map = self.map[:upper_limit+1]
             self.upper_limit = upper_limit
-        
         printf(f'Shape of final energies determined to be: {self.energies.shape}')
 
-
+        # Remove harmonic, if specified
+        if remove_harmonic:
+            assert spring_centers is not None
+            self.spring_centers = spring_centers.copy()
+            self._remove_harmonic()
         
         
     def get_state_energies(self, state_index: int=0):
@@ -187,7 +206,7 @@ class FultonMarketAnalysis():
             
     
     
-    def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, return_traj: bool=False):
+    def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, inds_out: str=None, return_traj: bool=False):
         
         # Make sure resampling has already occured
         if not hasattr(self, 'resampled_inds'):
@@ -201,24 +220,28 @@ class FultonMarketAnalysis():
         pos = np.empty((len(self.resampled_inds), self.positions[0].shape[2], 3))
         box_vec = np.empty((len(self.resampled_inds), 3, 3))
         for i, (state, iter) in enumerate(self.resampled_inds):
-
+    
             # Use map
             sim_no, sim_iter, sim_rep_ind = self.map[iter, state].astype(int)
             
             pos[i] = np.array(self.positions[sim_no][sim_iter][sim_rep_ind])
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
-
+    
         # Write out trajectory
         self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, dcd_out)
         self.traj[0].save_pdb(pdb_out)
         self.traj.save_dcd(dcd_out)
         printf(f'{self.traj.n_frames} frames written to {pdb_out}, {dcd_out}')
-
+    
         # Save weights, if specified
         if weights_out is not None:
             np.save(weights_out, self.resampled_weights)
             printf(f'{self.traj.n_frames} mbar weights written to {weights_out}')
-
+    
+        # Save indices, if specifid
+        if inds_out is not None:
+            np.save(inds_out, self.resampled_inds)
+            printf(f'{self.traj.n_frames} indices weights written to {inds_out}')
         
         if return_traj:
             return self.traj
@@ -320,12 +343,8 @@ class FultonMarketAnalysis():
         determine the indices (with respect to the last simulation) which are missing from other simulations
         """
         # Set interpolation attribute
-        if self.scheduling == 'Spring Centers' and hasattr(self, 'spring_centers_list'):
-            interpolation_list = [centers[:,0] for centers in self.spring_centers_list]
-            final_set = self.spring_centers[:,0]
-        else:
-            interpolation_list = self.temperatures_list
-            final_set = self.temperatures
+        interpolation_list = self.temperatures_list
+        final_set = self.temperatures
             
         # Iterate through temperatures
         self.interpolation_inds = []
@@ -413,6 +432,9 @@ class FultonMarketAnalysis():
         starting from each of the first 50 frames
         returns the likely best index of equilibration
         """
+
+        if hasattr(self, 't0'):
+           return 
  
         # PCA
         if equilibration_method == 'PCA':
@@ -449,9 +471,9 @@ class FultonMarketAnalysis():
                 if hasattr(self, 'upper_limit'):
                     traj = traj[:self.upper_limit+1]            
         
-            # Get protein or resids of interest
-            if self.resids is not None:
-                sele = traj.topology.select(f'resid {" ".join([str(resid) for resid in self.resids])}')
+            # Get protein or resSeqs of interest
+            if self.resSeqs is not None:
+                sele = traj.topology.select(f'resSeq {" ".join([str(resSeq) for resSeq in self.resSeqs])}')
             else:
                 sele = traj.topology.select('protein')
             traj = traj.atom_slice(sele)
@@ -499,6 +521,54 @@ class FultonMarketAnalysis():
     
             # Get box vectors
             self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
+
+
+    def _remove_harmonic(self, spring_constant=83.65):
+    
+        printf('Removing harmonic restraint from energies...')
+        # Equilibration if necessary
+        if not hasattr(self, 't0'):
+            self.equilibration_method = 'energy'
+            self.determine_equilibration()
+    
+        # Load positions
+        if not hasattr(self, 'positions'):
+            self._load_positions_box_vecs()
+        
+    
+        # Get selection for spring centers
+        if self.sele_str is not None:
+            sele = self.top.select(self.sele_str)
+        elif self.resSeqs is not None:
+            sele = self.top.select(f'protein and resSeq {" ".join([str(resSeq) for resSeq in self.resSeqs])}')
+        else:
+            raise Exception('Did not provide a selection via resSeqs or sele_str :(')
+    
+        # Iterate through frames
+        for frame in range(self.t0, self.energies.shape[0]):
+        
+            if frame % 10 == 0:
+                print(datetime.now(), frame)
+        
+            # Iterate through primary states
+            for state1 in range(self.energies.shape[1]):
+        
+                # Get frame, state positions
+                sim_no, sim_iter, sim_rep_ind = self.map[frame, state1]
+                pos = jnp.array([self.positions[sim_no][sim_iter][sim_rep_ind][sele]])
+                unitcell_lengths = jnp.array([self.box_vectors[sim_no][sim_iter][sim_rep_ind].sum(axis=1)])
+        
+                # Get spring centers
+                spring_centers = jnp.array([self.spring_centers[0,sele]]) # THIS ASSUMES THAT THE SPRING CENTERS PROVIDED ARE EQUAL IN ALL THERMODYNAMIC STATES
+        
+                # Get translation in case of wrapping issue
+                trans, _ = best_translation_by_unitcell_jax(unitcell_lengths, pos, spring_centers)
+        
+                # Correct 
+                self.energies[frame, state1, :] -= get_restraint_energy_kT(pos[0], trans[0], spring_centers[0], self.temperatures, spring_constant) 
+    
+    
+        printf(f'Harmonic restraint removed from EQUILIBRATED frames of energies with shape {self.energies.shape}')
 
 
 

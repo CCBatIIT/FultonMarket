@@ -1,5 +1,6 @@
 # Imports
-import os, sys, math, glob
+import os, sys, math, glob, itertools, jax
+import jax.numpy as jnp
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
@@ -20,8 +21,18 @@ warnings.filterwarnings('ignore')
 printf = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
 geometric_distribution = lambda min_val, max_val, n_vals: [min_val + (max_val - min_val) * (math.exp(float(i) / float(n_vals-1)) - 1.0) / (math.e - 1.0) for i in range(n_vals)]
-rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
+perms = jnp.array([x for x in itertools.product([-1, 0, 1], repeat=3)])
+jaxrmsd = lambda a, b: jnp.sqrt(jnp.mean(jnp.sum((b-a)**2, axis=-1), axis=-1))
+fprint = lambda x: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + x, flush=True)
+jax_add = lambda a, b: a+b
+jax_add = jax.vmap(jax_add, in_axes=(0, None))
+rmsd_j = jax.vmap(jaxrmsd, in_axes=(0, None))
 
+def rmsd(a, b):
+    if len(a.shape) == 1:
+        return np.sqrt(((a - b)**2).sum(-1).mean())
+    else:
+        return np.array([np.sqrt(((a[i] - b[i])**2).sum(-1).mean()) for i in range(a.shape[0])])
 
 def plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig: str=None):
 
@@ -50,19 +61,27 @@ def PCA_convergence_detection(rc, rc_err):
 
 
 def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, dcd_out):
+    
     # Create traj obj
-    traj = md.load_pdb(pdb_in)
-    
-    # Apply pos, box_vec to mdtraj obj
-    traj.xyz = pos.copy()
-    traj.unitcell_vectors = box_vec.copy()
-    traj.save_dcd(dcd_out)
-    
+    top = md.load_pdb(pdb_in).topology
+    traj = md.Trajectory(xyz=pos.copy(), 
+                         topology=top, 
+                         time=np.arange(pos.shape[0]), 
+                         unitcell_lengths=box_vec.sum(axis=1), 
+                         unitcell_angles=np.repeat([90,90,90], pos.shape[0]).astype(np.float32).reshape(pos.shape[0], 3))
+
     # Correct periodic issues
-    traj = md.load(dcd_out, top=pdb_in)
+    lig_sele = traj.topology.select('resname UNK')
+    lig_com = md.compute_center_of_mass(traj.atom_slice(lig_sele))
     prot_sele = traj.topology.select('protein')
+    prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
+    for frame in range(traj.n_frames):
+        best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
+        for lig_atom in lig_sele:
+            traj.xyz[frame, lig_atom, :] += best_trans
+
+    # Align frames for veiwing purposes
     traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
-    traj.image_molecules()
 
     return traj
 
@@ -158,16 +177,39 @@ def detect_PC_equil(pc, reduced_cartesian):
 
     return t0
 
+
 def detect_energy_equil(avg_energies):
     t0, _, _ = detect_equilibration(avg_energies)
 
     return t0
 
-def get_energies_without_harmonic(energies, pos, centers, T, spring_constant):
+
+def get_restraint_energy_kT(pos, trans, centers, T, spring_constant):
+    pos += trans # Translate, if necessary, to avoid wrapping issues
+    pos *= 10 #Convert to Angstrom
+    centers *= 10 #Convert to Angstrom
     x_dis = np.sum((centers[:,0] - pos[:,0])**2, axis=0)
     y_dis = np.sum((centers[:,1] - pos[:,1])**2, axis=0)
     z_dis = np.sum((centers[:,2] - pos[:,2])**2, axis=0)
-    displacement = np.sum((x_dis, y_dis, z_dis), axis=0)
-    corrected_energies = energies - (1 / (2 * 8.3145 * T)) * spring_constant * displacement
+    displacement_sq = np.sum((x_dis, y_dis, z_dis), axis=0)
 
-    return corrected_energies
+    restraint_energy = (1 / (2 * 8.3145 * T)) * spring_constant * displacement_sq # E(kT) = (1/2RT) * k_spring * ((x-x0)**2 + (y-y0)**2 + (z-z0)**2)  This expression converts restraint energies in (J/mol) to kT to match openmmtools energies
+
+    return restraint_energy
+
+def best_translation_by_unitcell(cell_lengths, mobile_coords, target_coords):
+    perms = np.array([x for x in itertools.product([-1, 0, 1], repeat=3)])
+    
+    translations = cell_lengths * perms
+    permuted_positions = np.array([np.sum((translations[i], mobile_coords), axis=0) for i in range(translations.shape[0])])
+    rmsds_of_permutations = np.array([rmsd(permuted_positions[i], target_coords) for i in range(permuted_positions.shape[0])])
+    return translations[np.argmin(rmsds_of_permutations)], rmsds_of_permutations[np.argmin(rmsds_of_permutations)]
+
+def best_translation_by_unitcell_jax(cell_lengths, mobile_coords, target_coords):
+    translations = cell_lengths * perms
+    permuted_positions = jax_add(translations, mobile_coords)
+    rmsds_of_permutations = rmsd_j(permuted_positions, target_coords)
+    return translations[jnp.argmin(rmsds_of_permutations)], rmsds_of_permutations[jnp.argmin(rmsds_of_permutations)]
+
+# Jax to speed up some functions
+best_translation_by_unitcell_jax = jax.vmap(best_translation_by_unitcell_jax, in_axes=(0, 0, None))

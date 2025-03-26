@@ -5,7 +5,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('pdb_dir', help="path to directory with .pdb files for each simulation in 'repexchange_dir'")
 parser.add_argument('repexchange_dir', help="path to directory with the replica exchange output directories")
 parser.add_argument('output_dir', help="path to outputdir where resampled trajectories will be stored.")
-parser.add_argument('resids_npy', help="path to .npy file with the resids to include for principal component analysis and equilibration detection")
+parser.add_argument('resSeqs_npy', help="path to .npy file with the resSeqs to include for principal component analysis and equilibration detection")
 parser.add_argument('--nframes', default=-1, type=int, help="number of frames to resample, default is -1 meaning to resample frames from the top 99.9%% of probability.")
 parser.add_argument('--no-replace', action='store_true', help="choose not to use resampling with replacement. this is only recommended when n_frames is -1 or default")
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
@@ -25,11 +25,11 @@ import jax
 
 
 # Multiprocessing method
-def resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace):
+def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace):
 
    
     # Initialize
-    analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resids=resids)
+    analysis = FultonMarketAnalysis(dir, pdb, skip=10, upper_limit=upper_limit, resSeqs=resSeqs)
 
     # Importance Resampling
     analysis.determine_equilibration()
@@ -96,7 +96,7 @@ if __name__ == '__main__':
             dir = os.path.join(repexchange_dir, sim)
             pdb = os.path.join(pdb_dir, "_".join(sim.split('_')[:-1]) + '.pdb')
             upper_limit = args.upper_limit
-            resids = np.load(args.resids_npy)
+            resSeqs = np.load(args.resSeqs_npy)
             n_samples = args.nframes
             if args.no_replace:
                 replace = False
@@ -104,10 +104,10 @@ if __name__ == '__main__':
                 replace = True
 
             if parallel:
-                mpargs.append((dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace))
+                mpargs.append((dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace))
 
             else:
-                resample(dir, pdb, upper_limit, resids, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace)
+                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace)
 
     
     # Multiprocess, if specified

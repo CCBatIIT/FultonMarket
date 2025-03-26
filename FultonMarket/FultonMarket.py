@@ -127,7 +127,7 @@ class FultonMarket():
             dt: float=2.0, 
             sim_length: int=50,
             convergence_thresh: float=0.350,
-            resids: np.array=None,
+            resSeqs: np.array=None,
             total_sim_time: int=None, 
             init_overlap_thresh: float=0.5, 
             term_overlap_thresh: float=0.35,
@@ -151,7 +151,7 @@ class FultonMarket():
             convergence_thresh (float):
                 Amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 0.350 . If this is not None, then this criterion will be used over total simulation time (see below).
 
-            resids (np.array):
+            resSeqs (np.array):
                 Numpy array of resSeqs to use to compute the PCA and evaluate the mean weighted reduced cartesians. If convergence_thresh is not None, this option should be specified. Default is None.
             
             total_sim_time (int):
@@ -172,10 +172,10 @@ class FultonMarket():
         self.iter_length = iter_length
         self.dt = dt
         self.sim_length = sim_length # ns
-        self.resids = resids
+        self.resSeqs = resSeqs
         self.convergence_thresh = convergence_thresh
-        if self.resids is None and self.convergence_thresh is not None: 
-            raise Exception(f'You must provide resids if you intend to use the convergence threshold of {self.convergence_thresh} ns.')
+        if self.resSeqs is None and self.convergence_thresh is not None: 
+            raise Exception(f'You must provide resSeqs if you intend to use the convergence threshold of {self.convergence_thresh} ns.')
         self.init_overlap_thresh = init_overlap_thresh
         self.term_overlap_thresh = term_overlap_thresh
 
@@ -404,7 +404,7 @@ class FultonMarket():
         rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
 
         # Interact with FultonmarketAnalysis
-        analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resids=self.resids) 
+        analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs) 
         analysis.determine_equilibration()
         analysis.importance_resampling(n_samples=1000)
         analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
