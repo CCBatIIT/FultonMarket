@@ -60,7 +60,7 @@ def PCA_convergence_detection(rc, rc_err):
     return converged
 
 
-def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, dcd_out):
+def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in):
     
     # Create traj obj
     top = md.load_pdb(pdb_in).topology
