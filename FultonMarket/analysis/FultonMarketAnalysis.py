@@ -64,7 +64,7 @@ class FultonMarketAnalysis():
         if sele_str is not None:
             self.sele_str = sele_str
         else:
-            self.sele_str = None
+            self.sele_str = 'resname UNK'
         
         # Load saved variables
         self.temperatures_list = [np.round(np.load(os.path.join(storage_dir, 'temperatures.npy'), mmap_mode='r'), decimals=2) for storage_dir in self.storage_dirs]
@@ -228,7 +228,7 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
     
         # Write out trajectory
-        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb)
+        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, self.sele_str)
         self.traj[0].save_pdb(pdb_out)
         self.traj.save_dcd(dcd_out)
         printf(f'{self.traj.n_frames} frames written to {pdb_out}, {dcd_out}')
@@ -270,7 +270,7 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
         
         # Apply pos, box_vec to mdtraj obj
-        traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb)
+        traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, self.sele_str)
 
         return traj
     

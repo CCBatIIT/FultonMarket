@@ -60,7 +60,7 @@ def PCA_convergence_detection(rc, rc_err):
     return converged
 
 
-def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in):
+def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str):
     
     # Create traj obj
     top = md.load_pdb(pdb_in).topology
@@ -71,9 +71,9 @@ def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in):
                          unitcell_angles=np.repeat([90,90,90], pos.shape[0]).astype(np.float32).reshape(pos.shape[0], 3))
 
     # Correct periodic issues
-    lig_sele = traj.topology.select('resname UNK')
+    lig_sele = traj.topology.select(sele_str)
     lig_com = md.compute_center_of_mass(traj.atom_slice(lig_sele))
-    prot_sele = traj.topology.select('protein')
+    prot_sele = traj.topology.select('chainid 0') # receptor should always be chainid 0
     prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
     for frame in range(traj.n_frames):
         best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
