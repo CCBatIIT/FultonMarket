@@ -111,7 +111,7 @@ if __name__ == '__main__':
                 mpargs.append((dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, args.sele_str))
 
             else:
-                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace. args.sele_str)
+                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, args.sele_str)
 
     
     # Multiprocess, if specified
