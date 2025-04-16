@@ -136,6 +136,7 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         resampled_inds = np.where(probs >= probs.max()*0.001)[0]
         printf(f'Top 99.9% of probability includes {len(resampled_inds)} no. of frames')
     else:
+        probs /= probs.sum() # Renormalize to avoid errors
         resampled_inds = np.random.choice(range(len(probs)), size=size, replace=replace, p=probs)
         
     resampled_objs = []
