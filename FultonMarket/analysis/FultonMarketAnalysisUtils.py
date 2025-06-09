@@ -71,14 +71,15 @@ def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str):
                          unitcell_angles=np.repeat([90,90,90], pos.shape[0]).astype(np.float32).reshape(pos.shape[0], 3))
 
     # Correct periodic issues
-    lig_sele = traj.topology.select(sele_str)
-    lig_com = md.compute_center_of_mass(traj.atom_slice(lig_sele))
     prot_sele = traj.topology.select('chainid 0') # receptor should always be chainid 0
-    prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
-    for frame in range(traj.n_frames):
-        best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
-        for lig_atom in lig_sele:
-            traj.xyz[frame, lig_atom, :] += best_trans
+    if sele_str is not None:
+        lig_sele = traj.topology.select(sele_str)
+        lig_com = md.compute_center_of_mass(traj.atom_slice(lig_sele))
+        prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
+        for frame in range(traj.n_frames):
+            best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
+            for lig_atom in lig_sele:
+                traj.xyz[frame, lig_atom, :] += best_trans
 
     # Align frames for veiwing purposes
     traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
@@ -136,7 +137,7 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         resampled_inds = np.where(probs >= probs.max()*0.001)[0]
         printf(f'Top 99.9% of probability includes {len(resampled_inds)} no. of frames')
     else:
-        probs /= probs.sum() # Renormalize to avoid errors
+        probs /= np.nan_to_num(probs).sum() # Renormalize to avoid errors
         resampled_inds = np.random.choice(range(len(probs)), size=size, replace=replace, p=probs)
         
     resampled_objs = []

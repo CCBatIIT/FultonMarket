@@ -55,6 +55,7 @@ class FultonMarket():
                  input_pdb: str, 
                  input_system: str, 
                  input_state: str,
+                 sele_str: str=None,
                  T_min: float=300, 
                  T_max: float=367.447, 
                  n_replicates: int=12):
@@ -83,6 +84,7 @@ class FultonMarket():
         # Set attr
         self.temperatures = [temp*unit.kelvin for temp in geometric_distribution(T_min, T_max, n_replicates)]
         self.n_replicates = n_replicates
+        self.sele_str = sele_str
 
         # Unpack .pdb
         self.input_pdb = input_pdb
@@ -404,7 +406,7 @@ class FultonMarket():
         rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
 
         # Interact with FultonmarketAnalysis
-        analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs) 
+        analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs, sele_str=self.sele_str) 
         analysis.determine_equilibration()
         analysis.importance_resampling(n_samples=1000)
         analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))

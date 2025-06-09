@@ -61,10 +61,8 @@ class FultonMarketAnalysis():
             self.resSeqs = [[self.top.residue(i).resSeq for i in range(self.top.n_residues)].index(resSeq) for resSeq in resSeqs] # convert to mdtraj resSeqs
         else:
             self.resSeqs = None
-        if sele_str is not None:
-            self.sele_str = sele_str
-        else:
-            self.sele_str = 'resname UNK'
+        self.sele_str = sele_str
+        printf(f'Found ligand selection string of: {sele_str}')       
         
         # Load saved variables
         self.temperatures_list = [np.round(np.load(os.path.join(storage_dir, 'temperatures.npy'), mmap_mode='r'), decimals=2) for storage_dir in self.storage_dirs]
