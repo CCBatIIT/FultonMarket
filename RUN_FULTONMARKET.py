@@ -26,6 +26,7 @@ parser.add_argument('-r', '--resSeqs-npy', default=None, type=str, help='path to
 parser.add_argument('-t', '--total-sim-time', default=None, type=int, help="aggregate simulation time from all replicates in nanoseconds. Default is None. If this option is specified and convergence_thresh is None, then this criterion will be used to evaluate when the simulation is complete.")
 parser.add_argument('-s', '--sub-sim-length', default=50, type=int, help="   Amount of time for each sub simulation in nanoseconds. This value dictates how often .ncdf objects are truncated, data is store, resampling occures, PCA analysis occurs, andconvergence criterion is evaluated. Default is 50, but 25 is recommended.")
 parser.add_argument('-n', '--n-replica', default=100, help="number of replica to start with between T_min (300 K) and T_max (360 K)", type=int)
+parser.add_argument('-x', '--sele-str', nargs='+', default=None, type=str, help='ligand selection string for mdtraj')
 args = parser.parse_args()
 
 sys.path.append('FultonMarket')
@@ -47,7 +48,10 @@ if __name__ == '__main__':
         input_state = os.path.join(input_dir, name+'_state.xml')
     
     input_pdb = os.path.join(input_dir, name+'.pdb')
-    
+    if args.sele_str is not None:
+        sele_str = ' '.join(args.sele_str)
+    else:
+        sele_str = None    
     # Outputs
     output_dir = os.path.join(sys.argv[3], name + '_' + str(args.replicate))
     if not os.path.exists(output_dir):
@@ -56,7 +60,11 @@ if __name__ == '__main__':
 
     
     # Run rep exchange
-    market = FultonMarket(input_pdb=input_pdb, input_system=input_sys, input_state=input_state, n_replicates=args.n_replica)
+    market = FultonMarket(input_pdb=input_pdb, 
+                          input_system=input_sys, 
+                          input_state=input_state, 
+                          n_replicates=args.n_replica,
+                          sele_str=sele_str)
     
     market.run(iter_length=0.001,
               dt=2.0,

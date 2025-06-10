@@ -17,6 +17,7 @@ from sklearn.decomposition import PCA
 from pymbar.timeseries import detect_equilibration
 import warnings
 warnings.filterwarnings('ignore')
+from typing import List
 
 printf = lambda my_string: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + ' // ' + str(my_string), flush=True)
 get_kT = lambda temp: temp*cons.gas_constant
@@ -60,7 +61,7 @@ def PCA_convergence_detection(rc, rc_err):
     return converged
 
 
-def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str):
+def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str, receptor_sele_str='chainid 0'):        
     
     # Create traj obj
     top = md.load_pdb(pdb_in).topology
@@ -71,21 +72,27 @@ def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str):
                          unitcell_angles=np.repeat([90,90,90], pos.shape[0]).astype(np.float32).reshape(pos.shape[0], 3))
 
     # Correct periodic issues
-    prot_sele = traj.topology.select('chainid 0') # receptor should always be chainid 0
+    prot_sele = traj.topology.select(receptor_sele_str) # receptor should always be chainid 0
     if sele_str is not None:
-        lig_sele = traj.topology.select(sele_str)
-        lig_com = md.compute_center_of_mass(traj.atom_slice(lig_sele))
+        if type(sele_str) == str:
+            sele_str = [str]
+        lig_seles = []
+        lig_coms = []
+        for s in sele_str:
+            lig_sele = traj.topology.select(s)
+            lig_seles.append(lig_sele)
+            lig_coms.append(md.compute_center_of_mass(traj.atom_slice(lig_sele)))
         prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
         for frame in range(traj.n_frames):
-            best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
-            for lig_atom in lig_sele:
-                traj.xyz[frame, lig_atom, :] += best_trans
+            for (s, lig_sele, lig_com) in zip(sele_str, lig_seles, lig_coms):
+                best_trans, _ = best_translation_by_unitcell(traj.unitcell_lengths[frame], lig_com[frame], prot_com[frame])
+                traj.xyz[frame, lig_sele, :] += best_trans
+
 
     # Align frames for veiwing purposes
     traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
 
     return traj
-
 
 
 def get_traj_PCA(traj, explained_variance_threshold: float=None):

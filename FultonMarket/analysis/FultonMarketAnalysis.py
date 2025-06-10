@@ -4,6 +4,7 @@ import jax.numpy as jnp
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
+from typing import List
 from pymbar import timeseries, MBAR
 import scipy.constants as cons
 import mdtraj as md
@@ -41,7 +42,8 @@ class FultonMarketAnalysis():
                  resSeqs: List[int]=None, 
                  sele_str: str=None,
                  upper_limit: int=None, 
-                 remove_harmonic: bool=False, 
+                 remove_harmonic: bool=False,
+                 
                  spring_centers: np.array=None):
         """
         get Numpy arrays, determine indices of interpolations, and set state_inds
@@ -531,14 +533,11 @@ class FultonMarketAnalysis():
         if not hasattr(self, 'positions'):
             self._load_positions_box_vecs()
         
-    
         # Get selection for spring centers
-        if self.sele_str is not None:
-            sele = self.top.select(self.sele_str)
-        elif self.resSeqs is not None:
+        if self.resSeqs is not None:
             sele = self.top.select(f'protein and resSeq {" ".join([str(resSeq) for resSeq in self.resSeqs])}')
         else:
-            raise Exception('Did not provide a selection via resSeqs or sele_str :(')
+            raise Exception('Did not provide a selection via resSeqs :(')
     
         # Iterate through frames
         for frame in range(self.t0, self.energies.shape[0]):
