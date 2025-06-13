@@ -75,11 +75,14 @@ def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str, receptor_sele_st
     prot_sele = traj.topology.select(receptor_sele_str) # receptor should always be chainid 0
     if sele_str is not None:
         if type(sele_str) == str:
-            sele_str = [str]
+            sele_str = [sele_str]
         lig_seles = []
         lig_coms = []
         for s in sele_str:
-            lig_sele = traj.topology.select(s)
+            try:
+                lig_sele = traj.topology.select(s)
+            except:
+                raise Exception(f'failed to parse {s}')
             lig_seles.append(lig_sele)
             lig_coms.append(md.compute_center_of_mass(traj.atom_slice(lig_sele)))
         prot_com = md.compute_center_of_mass(traj.atom_slice(prot_sele))
