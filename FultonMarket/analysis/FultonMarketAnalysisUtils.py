@@ -140,6 +140,7 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         probs = weights.copy()
     else:
         probs = weights[:, specify_state]
+    probs = np.nan_to_num(probs)
 
 
     # Resample
