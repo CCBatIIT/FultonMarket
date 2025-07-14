@@ -140,7 +140,6 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         probs = weights.copy()
     else:
         probs = weights[:, specify_state]
-    probs = np.nan_to_num(probs)
 
 
     # Resample
@@ -149,6 +148,7 @@ def resample_with_MBAR(objs: List, u_kln: np.array, N_k: np.array, size: int, re
         printf(f'Top 99.9% of probability includes {len(resampled_inds)} no. of frames')
     else:
         probs /= np.nan_to_num(probs).sum() # Renormalize to avoid errors
+        probs = np.nan_to_num(probs)
         try:
             resampled_inds = np.random.choice(range(len(probs)), size=size, replace=replace, p=probs)
         except: 
