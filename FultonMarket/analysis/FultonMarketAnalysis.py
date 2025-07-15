@@ -455,7 +455,7 @@ class FultonMarketAnalysis():
         else:
             print('equilibration_method must be either PCA or None')
 
-        printf(f'Equilibration detected at {np.round(self.t0 / 10, 3)} ns with method: {equilibration_method}')
+        printf(f'Equilibration detected at {np.round(self.t0 * self.energies.shape[1] / 1000, 3)} ns with method: {equilibration_method}')
 
     
 

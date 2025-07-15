@@ -11,7 +11,7 @@ parser.add_argument('--no-replace', action='store_true', help="choose not to use
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
 parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
 parser.add_argument('--sim-names', default=None, help="Comma delimited string of replica exchange names to analyze. EX: drug_1,drug_2,drug_3")
-parser.add_argument('--sele-str', default='resname UNK', type=str, help="mdtraj selection string for the ligand. Default is 'resname UNK'")
+parser.add_argument('--sele-str', default=None, type=str, help="mdtraj selection string for the ligand. Default is None")
 args = parser.parse_args()
 
 from FultonMarketAnalysis import FultonMarketAnalysis
@@ -40,6 +40,7 @@ def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
 
     # Get PCA
+<<<<<<< HEAD
     #analysis.get_PCA()
 
     # Test across different domains
@@ -48,11 +49,25 @@ def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds
     #mean_weighted_rc_err = np.empty(len(domains))
     #for i, domain in enumerate(domains):
         #mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
+=======
+#    analysis.get_PCA()
+
+    # Test across different domains
+ #   domains = np.arange(1000, analysis.energies.shape[0]+250, 250)
+  #  mean_weighted_rc = np.empty(len(domains))
+   # mean_weighted_rc_err = np.empty(len(domains))
+   # for i, domain in enumerate(domains):
+    #    mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
+>>>>>>> 5136d26bfe08d270e0088a79ae24c9b9b61bc53e
 
     # Save
     #mrc = np.array([domains, mean_weighted_rc, mean_weighted_rc_err])
     #np.save(mrc_out, mrc)
+<<<<<<< HEAD
     np.save(inds_out, analysis.resampled_inds)
+=======
+    #np.save(inds_out, analysis.resampled_inds)
+>>>>>>> 5136d26bfe08d270e0088a79ae24c9b9b61bc53e
     
     del analysis    
 
