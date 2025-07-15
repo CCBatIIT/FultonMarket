@@ -38,36 +38,6 @@ def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds
 
     # Write out
     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
-
-    # Get PCA
-<<<<<<< HEAD
-    #analysis.get_PCA()
-
-    # Test across different domains
-    #domains = np.arange(1000, analysis.energies.shape[0]+250, 250)
-    #mean_weighted_rc = np.empty(len(domains))
-    #mean_weighted_rc_err = np.empty(len(domains))
-    #for i, domain in enumerate(domains):
-        #mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
-=======
-#    analysis.get_PCA()
-
-    # Test across different domains
- #   domains = np.arange(1000, analysis.energies.shape[0]+250, 250)
-  #  mean_weighted_rc = np.empty(len(domains))
-   # mean_weighted_rc_err = np.empty(len(domains))
-   # for i, domain in enumerate(domains):
-    #    mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=domain, return_weighted_rc=True)
->>>>>>> 5136d26bfe08d270e0088a79ae24c9b9b61bc53e
-
-    # Save
-    #mrc = np.array([domains, mean_weighted_rc, mean_weighted_rc_err])
-    #np.save(mrc_out, mrc)
-<<<<<<< HEAD
-    np.save(inds_out, analysis.resampled_inds)
-=======
-    #np.save(inds_out, analysis.resampled_inds)
->>>>>>> 5136d26bfe08d270e0088a79ae24c9b9b61bc53e
     
     del analysis    
 
