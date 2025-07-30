@@ -228,7 +228,7 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
     
         # Write out trajectory
-        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, self.sele_str)
+        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.top, self.sele_str)
         self.traj[0].save_pdb(pdb_out)
         self.traj.save_dcd(dcd_out)
         printf(f'{self.traj.n_frames} frames written to {pdb_out}, {dcd_out}')
@@ -246,8 +246,6 @@ class FultonMarketAnalysis():
         if return_traj:
             return self.traj
 
-       
-    
 
     def state_trajectory(self, state_no=0, stride: int=1):
         """    
@@ -273,7 +271,117 @@ class FultonMarketAnalysis():
         traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, self.sele_str)
 
         return traj
+
+    def determine_equilibration(self, equilibration_method: str='energy', stride: int=10):
+        """
+        Automated equilibration detection
+        suggests an equilibration index (with respect to the whole simulation) by detecting equilibration for the average energies
+        starting from each of the first 50 frames
+        returns the likely best index of equilibration
+        """
+
+        if hasattr(self, 't0'):
+           return 
+ 
+        # PCA
+        if equilibration_method == 'PCA':
+            self.get_PCA(state_no=0, stride=stride, explained_variance_threshold=0.9)
+            
+            # Iterate through PCs to detect equilibration
+            equil_times = np.empty(self.n_components)
+            for pc in range(self.n_components):
+                equil_times[pc] = detect_PC_equil(pc, self.reduced_cartesian)
     
+    
+            # Save equilibration/uncorrelated inds to new variables
+            self.t0 = np.sum(equil_times  * (self.explained_variance / self.explained_variance.sum())).astype(int) * stride
+
+        elif equilibration_method == 'energy':
+            self.t0 = detect_energy_equil(self.get_average_energy())
+         
+        elif equilibration_method == 'None':
+            self.t0 = 0
+        else:
+            print('equilibration_method must be either PCA or None')
+
+        printf(f'Equilibration detected at {np.round(self.t0 * self.energies.shape[1] / 1000, 3)} ns with method: {equilibration_method}')
+
+    
+
+    def get_PCA(self, state_no: int=None, stride: int=1, explained_variance_threshold: float=0.9):
+            
+            # Get state trajectory
+            if state_no is None:
+                traj = deepcopy(self.traj)
+            else:
+                traj = self.state_trajectory(state_no, stride)
+                if hasattr(self, 'upper_limit'):
+                    traj = traj[:self.upper_limit+1]            
+        
+            # Get protein or resSeqs of interest
+            if self.resSeqs is not None:
+                sele = traj.topology.select(f'resSeq {" ".join([str(resSeq) for resSeq in self.resSeqs])}')
+            else:
+                sele = traj.topology.select('protein')
+            traj = traj.atom_slice(sele)
+        
+            # PCA
+            pca, self.reduced_cartesian, self.explained_variance, self.n_components = get_traj_PCA(traj, explained_variance_threshold=0.9)
+            printf(f'Computed reduced cartesian with shape: {self.reduced_cartesian.shape}')
+
+    
+    def get_weighted_reduced_cartesian(self, rc_upper_limit: None, return_weighted_rc: bool=False, use_state: bool=False, stride: int=1):
+        """
+        """
+        if rc_upper_limit is None:
+            rc_upper_limit = np.inf
+
+        if use_state:
+            state_flat_inds = np.array([[0, ind] for ind in range(self.energies.shape[0])])[::stride]
+            state_weights = np.repeat(1, state_flat_inds.shape[0])
+            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, state_flat_inds, rc_upper_limit, self.explained_variance, state_weights)
+        else:
+            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, self.resampled_inds, rc_upper_limit, self.explained_variance, self.resampled_weights)
+
+        if return_weighted_rc:
+            return self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err
+
+
+    def truncate(self):
+    
+        # Reload sim positions without skip
+        self._load_positions_box_vecs(skip=0) 
+    
+        # Get indices to remove
+        keep_inds = get_truncation_atom_keep_inds(self.top)
+        traj = md.load_pdb(self.pdb).atom_slice(keep_inds)
+        self.top = deepcopy(traj.topology)
+        
+        # Iterate through save directories and remove positions from unused thermodynamic states
+        for i, storage_dir in enumerate(self.storage_dirs[:-2]):
+    
+            # Check if already been truncated
+            top_fn = os.path.join(storage_dir, 'topology.pdb')
+            if os.path.exists(top_fn):
+                continue
+    
+            # Truncate positions
+            init_shape = self.positions[i].shape
+            sim_pos = np.array(self.positions[i][:,:,keep_inds,:])
+            printf(f'Reduced positions of {storage_dir} from {init_shape} to: {sim_pos.shape}')
+    
+            # Remove .npy file
+            pos_fn = os.path.join(storage_dir, 'positions.npy')
+            os.remove(pos_fn)
+    
+            # Write new positions
+            mmap = np.memmap(pos_fn, mode='w+', dtype='float32', shape=sim_pos.shape)
+            mmap[:] = sim_pos.copy()
+            mmap.flush()
+            traj[0].save_pdb(os.path.join(storage_dir, 'topology.pdb'))
+            
+        # Reload positions
+        self._load_positions_box_vecs() 
     
     
     def _reshape_list(self, unshaped_list: List):
@@ -422,103 +530,69 @@ class FultonMarketAnalysis():
         self.n_frames = self.energies.shape[0]
     
     
-
-    def determine_equilibration(self, equilibration_method: str='energy', stride: int=10):
-        """
-        Automated equilibration detection
-        suggests an equilibration index (with respect to the whole simulation) by detecting equilibration for the average energies
-        starting from each of the first 50 frames
-        returns the likely best index of equilibration
-        """
-
-        if hasattr(self, 't0'):
-           return 
- 
-        # PCA
-        if equilibration_method == 'PCA':
-            self.get_PCA(state_no=0, stride=stride, explained_variance_threshold=0.9)
-            
-            # Iterate through PCs to detect equilibration
-            equil_times = np.empty(self.n_components)
-            for pc in range(self.n_components):
-                equil_times[pc] = detect_PC_equil(pc, self.reduced_cartesian)
-    
-    
-            # Save equilibration/uncorrelated inds to new variables
-            self.t0 = np.sum(equil_times  * (self.explained_variance / self.explained_variance.sum())).astype(int) * stride
-
-        elif equilibration_method == 'energy':
-            self.t0 = detect_energy_equil(self.get_average_energy())
-         
-        elif equilibration_method == 'None':
-            self.t0 = 0
-        else:
-            print('equilibration_method must be either PCA or None')
-
-        printf(f'Equilibration detected at {np.round(self.t0 * self.energies.shape[1] / 1000, 3)} ns with method: {equilibration_method}')
-
-    
-
-    def get_PCA(self, state_no: int=None, stride: int=1, explained_variance_threshold: float=0.9):
-            
-            # Get state trajectory
-            if state_no is None:
-                traj = deepcopy(self.traj)
-            else:
-                traj = self.state_trajectory(state_no, stride)
-                if hasattr(self, 'upper_limit'):
-                    traj = traj[:self.upper_limit+1]            
+    # def _load_positions_box_vecs(self):
         
-            # Get protein or resSeqs of interest
-            if self.resSeqs is not None:
-                sele = traj.topology.select(f'resSeq {" ".join([str(resSeq) for resSeq in self.resSeqs])}')
-            else:
-                sele = traj.topology.select('protein')
-            traj = traj.atom_slice(sele)
-        
-            # PCA
-            pca, self.reduced_cartesian, self.explained_variance, self.n_components = get_traj_PCA(traj, explained_variance_threshold=0.9)
-            printf(f'Computed reduced cartesian with shape: {self.reduced_cartesian.shape}')
-
-    
-    def get_weighted_reduced_cartesian(self, rc_upper_limit: None, return_weighted_rc: bool=False, use_state: bool=False, stride: int=1):
-        """
-        """
-        if rc_upper_limit is None:
-            rc_upper_limit = np.inf
-
-        if use_state:
-            state_flat_inds = np.array([[0, ind] for ind in range(self.energies.shape[0])])[::stride]
-            state_weights = np.repeat(1, state_flat_inds.shape[0])
-            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, state_flat_inds, rc_upper_limit, self.explained_variance, state_weights)
-        else:
-            self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err = calculate_weighted_rc(self.reduced_cartesian, self.resampled_inds, rc_upper_limit, self.explained_variance, self.resampled_weights)
-
-        if return_weighted_rc:
-            return self.mean_weighted_reduced_cartesian, self.mean_weighted_reduced_cartesian_err
+    #     # Load
+    #     self.positions = []
+    #     self.box_vectors = []
+    #     for i, storage_dir in enumerate(self.storage_dirs):
             
+    #         # Get positions
+    #         try:
+    #             pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:]
+    #         except:
+    #             try:
+    #                 pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[self.skip:]
+    #             except:
+    #                 raise Exception(f"Issue opening {os.path.join(storage_dir, 'positions.npy')} with dtype float32 and shape {(self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3)}")
+    #         assert pos_i.shape[0] > 0, f'{storage_dir} is invalid, please delete and resume'            
+    #         self.positions.append(pos_i)
     
-    
-    def _load_positions_box_vecs(self):
+    #         # Get box vectors
+    #         self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
+
+
+    def _load_positions_box_vecs(self, skip=None):
+
+        # Set skip
+        if skip is None:
+            skip = self.skip
         
         # Load
         self.positions = []
         self.box_vectors = []
+        truncated = False
         for i, storage_dir in enumerate(self.storage_dirs):
             
             # Get positions
             try:
-                pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[self.skip:]
+                pos_i = np.load(os.path.join(storage_dir, 'positions.npy'), mmap_mode='r')[skip:]
             except:
                 try:
-                    pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=(self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3))[self.skip:]
+                    top_fn = os.path.join(storage_dir, 'topology.pdb')
+                    if os.path.exists(top_fn):
+                        truncated = True
+                        top = md.load_pdb(top_fn).topology
+                        self.top = deepcopy(top) # Make this the new topology for writing files
+                        shape = (self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], top.n_atoms, 3)
+                    else:
+                        top = md.load_pdb(self.pdb).topology
+                        shape = (self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], top.n_atoms, 3)
+    
+                    if truncated:
+                        keep_inds = get_truncation_atom_keep_inds(top)
+                        pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=shape)[skip:, :, keep_inds]
+                    else:
+                        pos_i = np.memmap(os.path.join(storage_dir, 'positions.npy'), mode='r', dtype='float32', shape=shape)[skip:]
                 except:
-                    raise Exception(f"Issue opening {os.path.join(storage_dir, 'positions.npy')} with dtype float32 and shape {(self.unshaped_energies[i].shape[0] + self.skip, self.unshaped_energies[i].shape[1], self.top.n_atoms, 3)}")
+                    raise Exception(f"Issue opening {os.path.join(storage_dir, 'positions.npy')} with dtype float32 and shape {shape}")
             assert pos_i.shape[0] > 0, f'{storage_dir} is invalid, please delete and resume'            
             self.positions.append(pos_i)
-    
+            printf(f'Loaded positions of {storage_dir} with shape {self.positions[i].shape}')
+
             # Get box vectors
-            self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[self.skip:]) 
+            self.box_vectors.append(np.load(os.path.join(storage_dir, 'box_vectors.npy'), mmap_mode='r')[skip:]) 
+            printf(f'Loaded box vectors of {storage_dir} with shape {self.box_vectors[i].shape}')
 
 
     def _remove_harmonic(self, spring_constant=83.65):

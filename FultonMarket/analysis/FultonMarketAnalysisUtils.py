@@ -61,10 +61,9 @@ def PCA_convergence_detection(rc, rc_err):
     return converged
 
 
-def write_traj_from_pos_boxvecs(pos, box_vec, pdb_in, sele_str, receptor_sele_str='chainid 0'):        
+def write_traj_from_pos_boxvecs(pos, box_vec, top, sele_str, receptor_sele_str='chainid 0'):        
     
     # Create traj obj
-    top = md.load_pdb(pdb_in).topology
     traj = md.Trajectory(xyz=pos.copy(), 
                          topology=top, 
                          time=np.arange(pos.shape[0]), 
@@ -213,6 +212,12 @@ def get_restraint_energy_kT(pos, trans, centers, T, spring_constant):
 
     return restraint_energy
 
+
+def get_truncation_atom_keep_inds(top):
+    remove_atom_inds = top.select('resname HOH NA CL POP')
+    return np.array([i for i in range(top.n_atoms) if i not in remove_atom_inds])
+    
+
 def best_translation_by_unitcell(cell_lengths, mobile_coords, target_coords):
     perms = np.array([x for x in itertools.product([-1, 0, 1], repeat=3)])
     
@@ -221,6 +226,7 @@ def best_translation_by_unitcell(cell_lengths, mobile_coords, target_coords):
     rmsds_of_permutations = np.array([rmsd(permuted_positions[i], target_coords) for i in range(permuted_positions.shape[0])])
     return translations[np.argmin(rmsds_of_permutations)], rmsds_of_permutations[np.argmin(rmsds_of_permutations)]
 
+    
 def best_translation_by_unitcell_jax(cell_lengths, mobile_coords, target_coords):
     translations = cell_lengths * perms
     permuted_positions = jax_add(translations, mobile_coords)
@@ -229,3 +235,5 @@ def best_translation_by_unitcell_jax(cell_lengths, mobile_coords, target_coords)
 
 # Jax to speed up some functions
 best_translation_by_unitcell_jax = jax.vmap(best_translation_by_unitcell_jax, in_axes=(0, 0, None))
+
+
