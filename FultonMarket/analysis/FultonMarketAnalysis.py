@@ -268,7 +268,7 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
         
         # Apply pos, box_vec to mdtraj obj
-        traj = write_traj_from_pos_boxvecs(pos, box_vec, self.pdb, self.sele_str)
+        traj = write_traj_from_pos_boxvecs(pos, box_vec, self.top, self.sele_str)
 
         return traj
 
