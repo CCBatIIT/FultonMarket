@@ -38,15 +38,14 @@ cb2_intracellular_inds = cb2_intracellular_inds - 23 # Zero indexed resids
 
 
 #Fulton Market Test
-response = response_func('Proceed with testing FultonMarket?')
-
+response = input('Proceed with testing FultonMarket? y/n \n')
 if response == 'y':
     #Setup Block
     test_output_dir = './Test_Cases/FM_test/'
     if not os.path.isdir(test_output_dir):
         os.mkdir(test_output_dir)
     else:
-        response = response_func(f'Should delete the contents of {test_output_dir}?')
+        response = input(f'Should delete the contents of {test_output_dir}? y/n \n')
         if response == 'y':
             delete_all_files_in_dir(test_output_dir)
     
@@ -57,8 +56,8 @@ if response == 'y':
                        n_replicates=5,
                        T_min=310,
                        T_max=320)
-    run_kwargs = dict(total_sim_time=1.0, iter_length=0.001, sim_length=0.1,
-                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.35)
+    run_kwargs = dict(convergence_thresh=None, iter_length=0.001, sim_length=0.1,
+                      output_dir=test_output_dir, init_overlap_thresh=0.0, term_overlap_thresh=0.1)
     market = FultonMarket(**init_kwargs)
     market.run(**run_kwargs)
 
