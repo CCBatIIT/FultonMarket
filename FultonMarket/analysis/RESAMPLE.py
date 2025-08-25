@@ -12,6 +12,7 @@ parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (
 parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
 parser.add_argument('--sim-names', default=None, help="Comma delimited string of replica exchange names to analyze. EX: drug_1,drug_2,drug_3")
 parser.add_argument('--sele-str', default=None, type=str, help="mdtraj selection string for the ligand. Default is None")
+parser.add_argument('--force', action='store_true', default=False, help='Force the resample, even if output files already exist.')
 args = parser.parse_args()
 
 from FultonMarketAnalysis import FultonMarketAnalysis
@@ -76,7 +77,7 @@ if __name__ == '__main__':
         weights_out = os.path.join(output_dir, 'mbar_weights', "_".join(sim.split('_')[:-1]) + '.npy')
         inds_out = os.path.join(output_dir, 'inds', "_".join(sim.split('_')[:-1]) + '.npy')
         mrc_out = os.path.join(output_dir, 'mrc', "_".join(sim.split('_')[:-1]) + '.npy')
-        if not os.path.exists(dcd_out):
+        if not os.path.exists(dcd_out) or args.force:
             
             # Sim input
             dir = os.path.join(repexchange_dir, sim)
