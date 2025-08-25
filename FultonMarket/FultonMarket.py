@@ -225,7 +225,8 @@ class FultonMarket():
 
             if self.sim_no * self.sim_length * self.iter_length * 1000 >= 200: # Only do post analysis if 200ns already ran to avoid issues with mbar
                 # Do post analysis of subsimulation
-                self._post_analysis()
+                # self._post_analysis() DEPRECATED AND NEEDS TO BE UPDATED
+                self.converged = False # Placeholder for above method
     
                 # Evaluate stop criterion
                 self._evaluate_stopping_criterion()
