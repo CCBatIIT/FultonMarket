@@ -93,7 +93,7 @@ if __name__ == '__main__':
             else:
                 replace = True
             if not sim.startswith('apo') and args.sele_str is not None:
-               sele_str = args.sele_str:
+               sele_str = args.sele_str
             else:
                None
                
