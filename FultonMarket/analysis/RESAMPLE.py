@@ -92,12 +92,16 @@ if __name__ == '__main__':
                 replace = False
             else:
                 replace = True
-
+            if not sim.startswith('apo') and args.sele_str is not None:
+               sele_str = args.sele_str
+            else:
+               None
+               
             if parallel:
-                mpargs.append((dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, args.sele_str))
+                mpargs.append((dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str))
 
             else:
-                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, args.sele_str)
+                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str)
 
     
     # Multiprocess, if specified
