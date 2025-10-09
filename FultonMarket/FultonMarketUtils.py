@@ -30,7 +30,7 @@ import mdtraj as md
 from openmm import *
 from openmm.app import *
 import openmm.unit as unit
-import math
+import math, mpiplus
 from datetime import datetime
 from copy import deepcopy
 
@@ -43,10 +43,41 @@ rmsd = lambda a, b: np.sqrt(np.mean(np.sum((b-a)**2, axis=-1), axis=-1))
 printf = lambda x: print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + x, flush=True)
 
 
-
 def convert_to_TrackedQuantity(arr: np.array, u: openmm.unit):
     return TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=arr, mask=False, fill_value=1e+20), unit=u))
 
+
+def _interpolate_new_states(prev_temps, insert_inds):
+
+    # Add new states
+    new_temps = [temp for temp in prev_temps]
+    for displacement, ind in enumerate(insert_inds):
+        temp_below = prev_temps[ind-1]
+        temp_above = prev_temps[ind]
+        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Inserting state at', np.mean((temp_below, temp_above)), flush=True) 
+        new_temps.insert(ind + displacement, np.mean((temp_below, temp_above)))
+    temperatures = [temp*unit.kelvin for temp in new_temps]
+    n_replicates = len(temperatures)
+    
+    return temperatures, n_replicates
+
+
+def _interpolate_new_positions(init_positions, init_box_vectors, init_velocities, insert_inds, n_replicates):
+    
+    # Add pos, box_vecs, velos for new temperatures
+    init_positions = np.insert(init_positions, insert_inds, [init_positions[ind-1] for ind in insert_inds], axis=0)
+    init_box_vectors = np.insert(init_box_vectors, insert_inds, [init_box_vectors[ind-1] for ind in insert_inds], axis=0)
+    if init_velocities is not None:
+        init_velocities = np.insert(init_velocities, insert_inds, [init_velocities[ind-1] for ind in insert_inds], axis=0)
+
+    # Convert to quantities    
+    init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
+    init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_box_vectors.reshape(n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
+
+    if init_velocities is not None:
+        init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
+
+    return init_positions, init_box_vectors, init_velocities
 
 
 def build_thermodynamic_states(self):
@@ -59,14 +90,13 @@ def build_thermodynamic_states(self):
     assert len(self.temperatures) == len(self.spring_centers)
 
 
-
-def build_sampler_states(self, pos: np.array, box_vec: np.array, velos: np.array=None):
+def build_sampler_states(n_replicates: int, pos: np.array, box_vec: np.array, velos: np.array=None):
 
     if velos is not None:
-        return [SamplerState(positions=pos[i], box_vectors=box_vec[i], velocities=velos[i]) for i in range(self.n_replicates)]
+        return [SamplerState(positions=pos[i], box_vectors=box_vec[i], velocities=velos[i]) for i in range(n_replicates)]
 
     else:
-        return [SamplerState(positions=pos[i], box_vectors=box_vec[i]) for i in range(self.n_replicates)]
+        return [SamplerState(positions=pos[i], box_vectors=box_vec[i]) for i in range(n_replicates)]
 
 
 
