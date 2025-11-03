@@ -14,6 +14,7 @@ PARAMETERS:
 
 import os, sys, argparse
 import numpy as np
+
 # Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('input_dir', help="absolute path to the directory with input xml and pdb")
@@ -27,6 +28,7 @@ parser.add_argument('-t', '--total-sim-time', default=None, type=int, help="aggr
 parser.add_argument('-s', '--sub-sim-length', default=50, type=int, help="   Amount of time for each sub simulation in nanoseconds. This value dictates how often .ncdf objects are truncated, data is store, resampling occures, PCA analysis occurs, andconvergence criterion is evaluated. Default is 50, but 25 is recommended.")
 parser.add_argument('-n', '--n-replica', default=100, help="number of replica to start with between T_min (300 K) and T_max (360 K)", type=int)
 parser.add_argument('-x', '--sele-str', nargs='+', default=None, type=str, help='ligand selection string for mdtraj')
+parser.add_argument('-i', '--iter-length', default=0.001, type=float, help='Length of iteration (ns)')
 args = parser.parse_args()
 
 sys.path.append('FultonMarket')
@@ -66,11 +68,11 @@ if __name__ == '__main__':
                           n_replicates=args.n_replica,
                           sele_str=sele_str)
     
-    market.run(iter_length=0.001,
+    market.run(iter_length=args.iter_length,
               dt=2.0,
               sim_length=args.sub_sim_length,
               convergence_thresh=args.convergence_thresh,
               resSeqs=resSeqs,
               total_sim_time=args.total_sim_time,
               output_dir=output_dir)
-
+    

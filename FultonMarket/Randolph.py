@@ -14,16 +14,11 @@ from openmmtools.multistate import ParallelTemperingSampler, ReplicaExchangeSamp
 from typing import List
 from datetime import datetime
 from copy import deepcopy
-
-#Custom
-try:
-    from .FultonMarketUtils import *
-except:
-    from FultonMarketUtils import *
-
-#Set Things
-np.seterr(divide='ignore', invalid='ignore')
-
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from FultonMarketUtils import *
+from FultonMarketUtils import _interpolate_new_states, _interpolate_new_positions # Not being imported in previous line for some reason
+import mpiplus
+# from mpi4py import MPI
 
 #Classes
 class Randolph():
@@ -58,6 +53,8 @@ class Randolph():
         self.iter_length = iter_length
         self.dt = dt
         self.spring_centers = spring_centers
+        if self.spring_centers is not None:
+            raise NotImplementedError('Interpolation has been deprecated w/ restraints')
         self.restrained_atom_indices = restrained_atom_indices
         
         # Configure simulation parameters
@@ -81,8 +78,9 @@ class Randolph():
 
             # Advance 1 cycle
             self._run_cycle()
+
             
-    
+    @mpiplus.on_single_node(0, broadcast_result=True, sync_nodes=True)
     def save_simulation(self, save_dir):
         """
         Save the important information from a simulation and then truncate the output.ncdf file to preserve disk space.
@@ -156,12 +154,22 @@ class Randolph():
         self.n_iters_per_cycle = np.ceil(self.n_iters / self.n_cycles)
         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated number of iters per cycle to be', self.n_iters_per_cycle, 'iterations', flush=True) 
 
+        self.checkpoint_interval = int(0.01 / self.iter_length)
+        print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated checkpoint interval to be', self.checkpoint_interval, 'iterations', flush=True) 
+
+
         # Configure replicates            
         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Calculated temperature of', self.n_replicates,
                                       'replicates to be', [np.round(t._value,1) for t in self.temperatures], flush=True)
 
 
-    
+    @mpiplus.on_single_node(0, sync_nodes=True)
+    def _remove_ncdf(self):
+        if os.path.exists(self.output_ncdf):
+            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Removing', self.output_ncdf, flush=True)
+            os.remove(self.output_ncdf)
+
+
     def _build_simulation(self):
         """
         """
@@ -176,21 +184,18 @@ class Randolph():
         self.simulation._global_citation_silence = True
 
         # Remove existing .ncdf files
-        if os.path.exists(self.output_ncdf):
-            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Removing', self.output_ncdf, flush=True)
-            os.remove(self.output_ncdf)
-        
+        self._remove_ncdf()
+
         # Setup reporter
         atom_inds = tuple([i for i in range(self.thermodynamic_states[0].system.getNumParticles())])
-        self.reporter = MultiStateReporter(self.output_ncdf, checkpoint_interval=10, analysis_particle_indices=atom_inds)
+        self.reporter = MultiStateReporter(self.output_ncdf, checkpoint_interval=self.checkpoint_interval, analysis_particle_indices=atom_inds)
         
         # Create simulation obj    
         if self.spring_centers is not None:
             self.simulation.create(thermodynamic_states=self.thermodynamic_states, sampler_states=self.sampler_states, storage=self.reporter)
         else:
             self.simulation.create(thermodynamic_state=self.thermodynamic_states[0], sampler_states=self.sampler_states,
-                                   storage=self.reporter, temperatures=self.temperatures, n_temperatures=self.n_replicates)
-            
+                                   storage=self.reporter, temperatures=self.temperatures, n_temperatures=self.n_replicates)   
 
     
     def _run_cycle(self):
@@ -198,6 +203,8 @@ class Randolph():
         Run one cycle
         """
 
+        comm = mpiplus.get_mpicomm()
+        
         # Take steps
         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'CYCLE', self.current_cycle, 'advancing', self.n_iters_per_cycle, 'iterations', flush=True) 
         if self.simulation.is_completed:
@@ -220,18 +227,16 @@ class Randolph():
             self._build_simulation()
         else:
             self.current_cycle += 1
-            
-            
+
+
+    @mpiplus.on_single_node(rank=0, broadcast_result=True, sync_nodes=True) 
     def _eval_acc_rates(self, acceptance_rate_thresh: float=0.40):
-        "Evaluate acceptance rates"        
         
         # Get temperatures
-        temperatures = [s.temperature._value for s in self.reporter.read_thermodynamic_states()[0]]
+        temperatures = [float(s.temperature._value) for s in self.reporter.read_thermodynamic_states()[0]]
         
         # Get mixing statistics
         accepted, proposed = self.reporter.read_mixing_statistics()
-        accepted = accepted.data
-        proposed = proposed.data
         acc_rates = np.mean(accepted[1:] / proposed[1:], axis=0)
         acc_rates = np.nan_to_num(acc_rates) # Adjust for cases with 0 proposed swaps
     
@@ -242,61 +247,45 @@ class Randolph():
             rate = acc_rates[state, state+1]
             if rate < acceptance_rate_thresh:
                 insert_inds.append(state+1)
-    
-        return np.array(insert_inds)
         
+        return np.array(insert_inds)
+
+    
+    @mpiplus.on_single_node(rank=0, broadcast_result=True, sync_nodes=True) 
+    def _read_temps_from_reporter(self): 
+        return np.array([float(s.temperature._value) for s in self.reporter.read_thermodynamic_states()[0]])
+
         
     def _interpolate_states(self, insert_inds: np.array):
-    
-        # Add new states
-        prev_temps = [s.temperature._value for s in self.reporter.read_thermodynamic_states()[0]]
-        new_temps = [temp for temp in prev_temps]
-        for displacement, ind in enumerate(insert_inds):
-            temp_below = prev_temps[ind-1]
-            temp_above = prev_temps[ind]
-            print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Inserting state at', np.mean((temp_below, temp_above)), flush=True) 
-            new_temps.insert(ind + displacement, np.mean((temp_below, temp_above)))
-        self.temperatures = [temp*unit.kelvin for temp in new_temps]
-        self.n_replicates = len(self.temperatures)
-
-        # Load everything
-        init_positions, init_box_vectors, init_velocities = self._load_inits()
         
-        # Add pos, box_vecs, velos for new temperatures
-        init_positions = np.insert(init_positions, insert_inds, [init_positions[ind-1] for ind in insert_inds], axis=0)
-        init_box_vectors = np.insert(init_box_vectors, insert_inds, [init_box_vectors[ind-1] for ind in insert_inds], axis=0)
-        if init_velocities is not None:
-            init_velocities = np.insert(init_velocities, insert_inds, [init_velocities[ind-1] for ind in insert_inds], axis=0)
-
-        # Convert to quantities    
-        init_positions = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_positions, mask=False, fill_value=1e+20), unit=unit.nanometer))
-        init_box_vectors = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_box_vectors.reshape(self.n_replicates, 3, 3), mask=False, fill_value=1e+20), unit=unit.nanometer))
-
-        if init_velocities is not None:
-            init_velocities = TrackedQuantity(unit.Quantity(value=np.ma.masked_array(data=init_velocities, mask=False, fill_value=1e+20), unit=(unit.nanometer / unit.picosecond)))
-
+        # Determine new states
+        prev_temps = self._read_temps_from_reporter()
+        self.temperatures, self.n_replicates = _interpolate_new_states(prev_temps, insert_inds)
+        init_positions, init_box_vectors, init_velocities = self._load_inits()
+        init_positions, init_box_vectors, init_velocities = _interpolate_new_positions(init_positions, init_box_vectors, init_velocities, insert_inds, self.n_replicates)
+        
         # Update Sampler States
-        self.sampler_states = build_sampler_states(self, init_positions, init_box_vectors, init_velocities)
+        self.sampler_states = build_sampler_states(self.n_replicates, init_positions, init_box_vectors, init_velocities)
 
+        
+        # Add new restraints, if necessary, MAY BE DEPRECATED w/ MPI implementation
+        # if self.spring_centers is not None:
+        #     prev_spring_centers = self.spring_centers
+        #     new_spring_centers = self.spring_centers
+        #     for displacement, ind in enumerate(insert_inds):
+        #         center_below = prev_spring_centers[ind - 1]
+        #         center_above = prev_spring_centers[ind]
+        #         print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Inserting state with new Spring Center', flush=True)
+        #         new_center = 0.5*(center_above + center_below)
+        #         new_spring_centers = np.insert(new_spring_centers, ind + displacement, new_center, axis=0)
+        #     self.spring_centers = new_spring_centers
+        #     assert self.spring_centers.shape[0] == len(self.temperatures)
 
-        # Add new restraints, if necessary
-        if self.spring_centers is not None:
-            prev_spring_centers = self.spring_centers
-            new_spring_centers = self.spring_centers
-            for displacement, ind in enumerate(insert_inds):
-                center_below = prev_spring_centers[ind - 1]
-                center_above = prev_spring_centers[ind]
-                print(datetime.now().strftime("%m/%d/%Y %H:%M:%S") + '//' + 'Inserting state with new Spring Center', flush=True)
-                new_center = 0.5*(center_above + center_below)
-                new_spring_centers = np.insert(new_spring_centers, ind + displacement, new_center, axis=0)
-            self.spring_centers = new_spring_centers
-            assert self.spring_centers.shape[0] == len(self.temperatures)
+        #     # Update Thermodynamic States
+        #     self.system = self.thermodynamic_states[0].system
+        #     self.system.removeForce(6)# Remove previous CustomExternalForce
+        #     build_thermodynamic_states(self)
 
-            # Update Thermodynamic States
-            self.system = self.thermodynamic_states[0].system
-            self.system.removeForce(6)# Remove previous CustomExternalForce
-            build_thermodynamic_states(self)
-    
 
     def _load_inits(self):
 

@@ -3,7 +3,12 @@ Fully integrated replica exchange simulation modules.
 
 ## **Environment**
 For preparation of a environment, please refer to [openmmtool installation instructions](https://openmmtools.readthedocs.io/en/stable/installation.html#).
-
+Dependencies:
+- openmmtools (0.25.2)
+- mdtraj (1.11.0)
+- scikit-learn (1.7.2)
+- seaborn (0.13.2)
+- jax ([see GPU instructions](https://docs.jax.dev/en/latest/installation.html))
 
 ## **Types of Simulation**
 

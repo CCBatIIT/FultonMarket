@@ -4,7 +4,7 @@ from openmm.app import *
 from openmmtools.states import SamplerState, ThermodynamicState
 import numpy as np
 import netCDF4 as nc
-import os, sys, faulthandler
+import os, sys, faulthandler, mpiplus
 
 #Custom Imports
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -128,7 +128,7 @@ class FultonMarket():
             iter_length: float, 
             dt: float=2.0, 
             sim_length: int=50,
-            convergence_thresh: float=0.350,
+            convergence_thresh: float=None,
             resSeqs: np.array=None,
             total_sim_time: int=None, 
             init_overlap_thresh: float=0.5, 
@@ -151,7 +151,7 @@ class FultonMarket():
                 Amount of time for each sub simulation in nanoseconds. This value dictates how often .ncdf objects are truncated, data is store, resampling occures, PCA analysis occurs, andconvergence criterion is evaluated. Default is 50, but 25 is recommended. 
 
             convergence_thresh (float):
-                Amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 0.350 . If this is not None, then this criterion will be used over total simulation time (see below).
+                Amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 0.350 . If this is not None, then this criterion will be used over total simulation time (see below). Default is None.
 
             resSeqs (np.array):
                 Numpy array of resSeqs to use to compute the PCA and evaluate the mean weighted reduced cartesians. If convergence_thresh is not None, this option should be specified. Default is None.
@@ -170,10 +170,10 @@ class FultonMarket():
         """
 
         # Set attr
-        self.total_sim_time = total_sim_time
-        self.iter_length = iter_length
+        self.total_sim_time = total_sim_time #ns
+        self.iter_length = iter_length #ns
         self.dt = dt
-        self.sim_length = sim_length # ns
+        self.sim_length = sim_length #ns
         self.resSeqs = resSeqs
         self.convergence_thresh = convergence_thresh
         if self.resSeqs is None and self.convergence_thresh is not None: 
@@ -193,6 +193,7 @@ class FultonMarket():
         printf(f'Found total simulation time of {self.total_sim_time} nanoseconds')
         printf(f'Found iteration length of {self.iter_length} nanoseconds')
         printf(f'Found timestep of {self.dt} femtoseconds')
+        printf(f'Found length of simulation to be {self.sim_length} nanoseconds')
         printf(f'Found number of replicates {self.n_replicates}')
         printf(f'Found initial acceptance rate threshold {self.init_overlap_thresh}')
         printf(f'Found terminal acceptance rate threshold {self.term_overlap_thresh}')
@@ -201,7 +202,7 @@ class FultonMarket():
             
 
         # Loop through short 50 ns simulations to allow for .ncdf truncation
-        self._configure_experiment_parameters(sim_length=self.sim_length)
+        self._configure_experiment_parameters()
         while not self.finished:
 
             # Initialize Randolph
@@ -223,13 +224,8 @@ class FultonMarket():
             # Save simulation
             self._save_sub_simulation()
 
-            if self.sim_no * self.sim_length * self.iter_length * 1000 >= 200: # Only do post analysis if 200ns already ran to avoid issues with mbar
-                # Do post analysis of subsimulation
-                # self._post_analysis() DEPRECATED AND NEEDS TO BE UPDATED
-                self.converged = False # Placeholder for above method
-    
-                # Evaluate stop criterion
-                self._evaluate_stopping_criterion()
+            # Evaluate stop criterion
+            self._evaluate_stopping_criterion()
 
             # Update counter
             del self.simulation
@@ -243,7 +239,7 @@ class FultonMarket():
         self.params = dict(sampler_states=self.sampler_states,
                            thermodynamic_states=self.thermodynamic_states,
                            sim_no=self.sim_no,
-                           sim_time=self.sim_time,
+                           sim_time=self.sim_length,
                            temperatures=self.temperatures,
                            output_dir=self.output_dir,
                            output_ncdf=self.output_ncdf,
@@ -269,7 +265,7 @@ class FultonMarket():
             self.sampler_states = [SamplerState(positions=self.init_positions, box_vectors=self.init_box_vectors).from_context(self.context) for i in range(self.n_replicates)]
         else:
             printf('Setting initial positions with the "Velocity" method')
-            self.sampler_states = build_sampler_states(self, self.init_positions, self.init_box_vectors, self.init_velocities)
+            self.sampler_states = build_sampler_states(self.n_replicates, self.init_positions, self.init_box_vectors, self.init_velocities)
 
 
 
@@ -341,22 +337,20 @@ class FultonMarket():
 
 
     
-    def _configure_experiment_parameters(self, sim_length=50):
+    def _configure_experiment_parameters(self):
         # Assert that no empty save directories have been made
         assert all([len(os.listdir(os.path.join(self.save_dir, dir))) >= 5 for dir in os.listdir(self.save_dir)]), "You may have an empty save directory, please remove empty or incomplete save directories before continuing :)"
         
         # Configure experiment parameters
         self.sim_no = len(os.listdir(self.save_dir))
         printf(f'Found n_sims_completed to be {self.sim_no}')
-        self.sim_time = sim_length # ns
         if self.total_sim_time is not None:
-            self.total_n_sims = np.ceil(self.total_sim_time / self.sim_time)
+            self.total_n_sims = np.ceil(self.total_sim_time / self.sim_length)
             printf(f'Calculated total_n_sims to be {self.total_n_sims}')
 
         self.finished = False
         if self.sim_no > 0:
-            # Post analysis to check if convergence criterion is already met
-            self._post_analysis()
+            self.converged = False # Deprecated and changed to false, was previously _post_analysis()
     
             # Evaluate stopping criterion 
             self._evaluate_stopping_criterion()
@@ -377,81 +371,83 @@ class FultonMarket():
         return velocities, positions, box_vectors, state_inds
 
 
+    # @mpiplus.on_single_node(0, broadcast_result=True, sync_nodes=True)
+    # def _post_analysis(self):
+    #     """
+    #     For post analysis:
+    #         1. Make output directory
+    #         2. Read replica expance output with FultonMarketAnalysis
+    #         3. Detect equilibration
+    #         4. Importance resampling (top 99.9%)
+    #         5. Write out trajectory and mbar weights
+    #         6. Compute PCA 
+    #         7. Save out mean weighted reduced cartesian relative to endstate
+    #     """
 
-    def _post_analysis(self):
-        """
-        For post analysis:
-            1. Make output directory
-            2. Read replica expance output with FultonMarketAnalysis
-            3. Detect equilibration
-            4. Importance resampling (top 99.9%)
-            5. Write out trajectory and mbar weights
-            6. Compute PCA 
-            7. Save out mean weighted reduced cartesian relative to endstate
-        """
+    #     # Make output directory, if needed
+    #     if not hasattr(self, 'post_analysis_dir'):
+    #         self.post_analysis_dir = os.path.join(self.output_dir, 'post_analysis')
+    #     if not os.path.exists(self.post_analysis_dir):
+    #         os.mkdir(self.post_analysis_dir)
 
-        # Make output directory, if needed
-        if not hasattr(self, 'post_analysis_dir'):
-            self.post_analysis_dir = os.path.join(self.output_dir, 'post_analysis')
-        if not os.path.exists(self.post_analysis_dir):
-            os.mkdir(self.post_analysis_dir)
+    #     # Determine how much simulation has already been ran
+    #     domain = int(self.sim_no * self.sim_length * self.iter_length * 1000 * 10)
+    #     domain_save_dir = os.path.join(self.post_analysis_dir, str(domain))
+    #     if not os.path.exists(domain_save_dir):
+    #         os.mkdir(domain_save_dir)
+    #     pdb_out = os.path.join(domain_save_dir, f'{self.name}.pdb')
+    #     dcd_out = os.path.join(domain_save_dir, f'{self.name}.dcd')
+    #     weights_out = os.path.join(domain_save_dir, f'{self.name}.npy')
+    #     rc_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc.npy')
+    #     rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
 
-        # Determine how much simulation has already been ran
-        domain = int(self.sim_no * self.sim_length * self.iter_length * 1000 * 10)
-        domain_save_dir = os.path.join(self.post_analysis_dir, str(domain))
-        if not os.path.exists(domain_save_dir):
-            os.mkdir(domain_save_dir)
-        pdb_out = os.path.join(domain_save_dir, f'{self.name}.pdb')
-        dcd_out = os.path.join(domain_save_dir, f'{self.name}.dcd')
-        weights_out = os.path.join(domain_save_dir, f'{self.name}.npy')
-        rc_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc.npy')
-        rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
+    #     # Interact with FultonmarketAnalysis
+    #     analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs, sele_str=self.sele_str) 
+    #     analysis.determine_equilibration()
+    #     analysis.importance_resampling(n_samples=1000)
+    #     analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
+    #     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
+    #     analysis.get_PCA()
 
-        # Interact with FultonmarketAnalysis
-        analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs, sele_str=self.sele_str) 
-        analysis.determine_equilibration()
-        analysis.importance_resampling(n_samples=1000)
-        analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
-        analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
-        analysis.get_PCA()
-
-        # Get mean weighted reduced cartesians
-        domains = np.zeros(len(analysis.unshaped_energies), int)
-        mean_weighted_rc = np.empty(len(domains))
-        mean_weighted_rc_err = np.empty(len(domains))
-        frame_counter = 0
-        for i, e in enumerate(analysis.unshaped_energies):
+    #     # Get mean weighted reduced cartesians
+    #     domains = np.zeros(len(analysis.unshaped_energies), int)
+    #     mean_weighted_rc = np.empty(len(domains))
+    #     mean_weighted_rc_err = np.empty(len(domains))
+    #     frame_counter = 0
+    #     for i, e in enumerate(analysis.unshaped_energies):
         
-            # Analyze simulation domain
-            n_frames, n_states = e.shape[:2]
-            sim_time_per_frame = self.iter_length * len(analysis.temperatures)
-            sub_sim_length = sim_time_per_frame * analysis.energies.shape[0]
-            domain = sub_sim_length + domains[i-1]
-            domains[i] = domain
-            frame_slice = n_frames + frame_counter
-            frame_counter += n_frames
+    #         # Analyze simulation domain
+    #         n_frames, n_states = e.shape[:2]
+    #         sim_time_per_frame = self.iter_length * len(analysis.temperatures)
+    #         sub_sim_length = sim_time_per_frame * analysis.energies.shape[0]
+    #         domain = sub_sim_length + domains[i-1]
+    #         domains[i] = domain
+    #         frame_slice = n_frames + frame_counter
+    #         frame_counter += n_frames
         
-            # Get mean weighted rc
-            mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=frame_slice, return_weighted_rc=True)
+    #         # Get mean weighted rc
+    #         mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=frame_slice, return_weighted_rc=True)
 
-        # Save mean weighted rc
-        np.save(rc_out, mean_weighted_rc)
-        np.save(rc_err_out, mean_weighted_rc_err)
-        plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png'))
+    #     # Save mean weighted rc
+    #     np.save(rc_out, mean_weighted_rc)
+    #     np.save(rc_err_out, mean_weighted_rc_err)
+    #     plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png'))
 
-        # Detect equilibration
-        converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
-        sim_time_converged = converged.sum() * self.sim_length * self.iter_length * 1000
-        printf(f'Detected {sim_time_converged} ns converged.')
-        if self.convergence_thresh is not None and sim_time_converged >= self.convergence_thresh:
-            self.converged = True
-            printf(f'Convergence criterion of {self.convergence_thresh} met. Stopping here.') 
-        else:
-            self.converged = False
-            if self.convergence_thresh is not None:
-                print(f'Convergence criterion of {self.convergence_thresh} not met. Continuing...')
+    #     # Detect equilibration
+    #     converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
+    #     sim_time_converged = converged.sum() * self.sim_length * self.iter_length * 1000
+    #     printf(f'Detected {sim_time_converged} ns converged.')
+    #     if self.convergence_thresh is not None and sim_time_converged >= self.convergence_thresh:
+    #         printf(f'Convergence criterion of {self.convergence_thresh} met. Stopping here.') 
+    #         return True
+    #     else:
+            
+    #         if self.convergence_thresh is not None:
+    #             print(f'Convergence criterion of {self.convergence_thresh} not met. Continuing...')
+    #         return False
 
 
+    
     def _evaluate_stopping_criterion(self):
 
         # If convergence threshold is specified, use that
