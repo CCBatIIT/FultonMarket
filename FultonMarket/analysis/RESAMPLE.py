@@ -9,10 +9,11 @@ parser.add_argument('--resSeqs-npy', default=None, help="path to .npy file with 
 parser.add_argument('--nframes', default=-1, type=int, help="number of frames to resample, default is -1 meaning to resample frames from the top 99.9%% of probability.")
 parser.add_argument('--no-replace', action='store_true', help="choose not to use resampling with replacement. this is only recommended when n_frames is -1 or default")
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
-parser.add_argument('--parallel', action='store_true', help="choose to multiprocess the calculation across different replica exchange simulations")
 parser.add_argument('--sim-names', default=None, help="Comma delimited string of replica exchange names to analyze. EX: drug_1,drug_2,drug_3")
+parser.add_argument('--skip', default=[], help="Comma delimited string of replica exchaange names to skip analysis")
 parser.add_argument('--sele-str', default=None, type=str, help="mdtraj selection string for the ligand. Default is None")
 parser.add_argument('--force', action='store_true', default=False, help='Force the resample, even if output files already exist.')
+parser.add_argument('--no-correction', action='store_true', default=False, help='Do not perform any corrections (translations, alignment, wrapping).')
 args = parser.parse_args()
 
 from FultonMarketAnalysis import FultonMarketAnalysis
@@ -27,7 +28,7 @@ import jax
 
 
 # Multiprocessing method
-def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str):
+def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str, correction):
 
    
     # Initialize
@@ -38,7 +39,7 @@ def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds
     analysis.importance_resampling(n_samples=n_samples, replace=replace)
 
     # Write out
-    analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
+    analysis.write_resampled_traj(pdb_out, dcd_out, weights_out, correction=correction)
     
     del analysis    
 
@@ -70,6 +71,9 @@ if __name__ == '__main__':
     # Set up arguments
     mpargs = []
     for sim in sims:
+
+        if sim in args.skip:
+            continue
         
         # Define outputs
         pdb_out = os.path.join(output_dir, 'pdb', "_".join(sim.split('_')[:-1]) + '.pdb')
@@ -95,27 +99,10 @@ if __name__ == '__main__':
             if not sim.startswith('apo') and args.sele_str is not None:
                sele_str = args.sele_str
             else:
-               None
-               
-            if parallel:
-                mpargs.append((dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str))
+               sele_str = None
 
-            else:
-                resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str)
+            # Resample
+            resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str, correction=args.no_correction)
 
     
-    # Multiprocess, if specified
-    if parallel:
-        counter = 0
-        while len(os.listdir(os.path.join(output_dir, 'dcd'))) < len(sims) and counter < 10:
-            try:
-                n_threads = int(os.environ('NUM_THREADS'))
-            except:
-                n_threads = 5
-            with mp.Pool(n_threads) as p:
-                p.starmap(resample, mpargs)
-                p.close()
-                p.join()
-
-            counter += 1
 

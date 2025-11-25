@@ -206,7 +206,7 @@ class FultonMarketAnalysis():
             
     
     
-    def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, inds_out: str=None, return_traj: bool=False):
+    def write_resampled_traj(self, pdb_out: str, dcd_out: str, weights_out: str=None, inds_out: str=None, return_traj: bool=False, correction: bool=True):
         
         # Make sure resampling has already occured
         if not hasattr(self, 'resampled_inds'):
@@ -228,7 +228,7 @@ class FultonMarketAnalysis():
             box_vec[i] = np.array(self.box_vectors[sim_no][sim_iter][sim_rep_ind])
     
         # Write out trajectory
-        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.top, self.sele_str)
+        self.traj = write_traj_from_pos_boxvecs(pos, box_vec, self.top, self.sele_str, correction=correction)
         self.traj[0].save_pdb(pdb_out)
         self.traj.save_dcd(dcd_out)
         printf(f'{self.traj.n_frames} frames written to {pdb_out}, {dcd_out}')
