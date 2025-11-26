@@ -54,7 +54,6 @@ if __name__ == '__main__':
     repexchange_dir = args.repexchange_dir
     output_dir = args.output_dir
     pdb_dir = args.pdb_dir
-    parallel = args.parallel
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     if not os.path.exists(os.path.join(output_dir, 'pdb')):
