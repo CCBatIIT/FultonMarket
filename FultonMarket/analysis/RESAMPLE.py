@@ -102,7 +102,7 @@ if __name__ == '__main__':
                sele_str = None
 
             # Resample
-            resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str, correction=args.no_correction)
+            resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str, correction=not args.no_correction)
 
     
 
