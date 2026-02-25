@@ -61,7 +61,7 @@ def PCA_convergence_detection(rc, rc_err):
     return converged
 
 
-def write_traj_from_pos_boxvecs(pos, box_vec, top, sele_str, receptor_sele_str='chainid 0'):        
+def write_traj_from_pos_boxvecs(pos, box_vec, top, sele_str, receptor_sele_str='chainid 0', correction: bool=True):        
     
     # Create traj obj
     traj = md.Trajectory(xyz=pos.copy(), 
@@ -72,7 +72,7 @@ def write_traj_from_pos_boxvecs(pos, box_vec, top, sele_str, receptor_sele_str='
 
     # Correct periodic issues
     prot_sele = traj.topology.select(receptor_sele_str) # receptor should always be chainid 0
-    if sele_str is not None:
+    if sele_str is not None and correction:
         if type(sele_str) == str:
             sele_str = [sele_str]
         lig_seles = []
@@ -92,7 +92,8 @@ def write_traj_from_pos_boxvecs(pos, box_vec, top, sele_str, receptor_sele_str='
 
 
     # Align frames for veiwing purposes
-    traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
+    if correction:
+        traj = traj.superpose(traj, atom_indices=prot_sele, ref_atom_indices=prot_sele)
 
     return traj
 
