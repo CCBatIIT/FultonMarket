@@ -1,6 +1,22 @@
 # Imports
-import os, sys, math, glob, jax 
-import jax.numpy as jnp
+import os, sys, math, glob
+
+try:
+    # Try GPU first (default behavior)
+    import jax
+    import jax.numpy as jnp
+
+    # Force a tiny operation to trigger backend initialization early
+    _ = jnp.zeros(1)
+except Exception as e:
+    # GPU backend failed → fall back to CPU
+    os.environ["JAX_PLATFORMS"] = "cpu"
+
+    import jax
+    import jax.numpy as jnp
+
+    print("⚠️ JAX GPU unavailable, falling back to CPU:", e)
+
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
