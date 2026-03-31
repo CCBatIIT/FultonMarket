@@ -14,7 +14,10 @@ import matplotlib.pyplot as plt
 from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
-from pymbar.timeseries import detect_equilibration
+try:
+    from pymbar.timeseries import detect_equilibration
+except ImportError:
+    from pymbar.timeseries import detectEquilibration as detect_equilibration
 import warnings
 warnings.filterwarnings('ignore')
 from typing import List
