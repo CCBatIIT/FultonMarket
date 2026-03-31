@@ -24,8 +24,22 @@ from pymbar.timeseries import detect_equilibration
 import os, sys
 import netCDF4 as nc 
 import multiprocessing as mp
-import jax
 
+try:
+    # Try GPU first (default behavior)
+    import jax
+    import jax.numpy as jnp
+
+    # Force a tiny operation to trigger backend initialization early
+    _ = jnp.zeros(1)
+except Exception as e:
+    # GPU backend failed → fall back to CPU
+    os.environ["JAX_PLATFORMS"] = "cpu"
+
+    import jax
+    import jax.numpy as jnp
+
+    print("⚠️ JAX GPU unavailable, falling back to CPU:", e)
 
 # Multiprocessing method
 def resample(dir, pdb, upper_limit, resSeqs, pdb_out, dcd_out, weights_out, inds_out, mrc_out, n_samples, replace, sele_str, correction):
