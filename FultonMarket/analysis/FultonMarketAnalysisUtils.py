@@ -201,8 +201,15 @@ def compute_MBAR_weights(u_kln, N_k):
     """
     """
     mbar = MBAR(u_kln, N_k, initialize='BAR')
+    
+    try:
+        # PyMBAR 4.x API
+        weights = mbar.weights()
+    except AttributeError:
+        # PyMBAR 3.x API
+        weights = mbar.getWeights()
 
-    return mbar.weights()
+    return weights
 
 
 @staticmethod
