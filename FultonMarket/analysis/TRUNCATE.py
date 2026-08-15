@@ -54,7 +54,14 @@ if __name__ == '__main__':
 
         # Sim input
         dir = os.path.join(repexchange_dir, sim)
+        already_done = np.sum([os.path.exists(os.path.join(dir, 'saved_variables', sv_dir, 'topology.pdb')) for sv_dir in os.listdir(os.path.join(dir, 'saved_variables'))])
+        no_dirs = len(os.listdir(os.path.join(dir, 'saved_variables')))
+        if already_done >= no_dirs - 2:
+            continue
         pdb = os.path.join(pdb_dir, "_".join(sim.split('_')[:-1]) + '.pdb')
-        perform_truncation(dir, pdb)
-
+        try:
+            perform_truncation(dir, pdb)
+        except:
+            print(f'[TRUNCATION FAILED] {sim}', flush=True)
+            pass
 
