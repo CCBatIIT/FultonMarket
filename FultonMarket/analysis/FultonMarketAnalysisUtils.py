@@ -1,6 +1,22 @@
 # Imports
-import os, sys, math, glob, itertools, jax
-import jax.numpy as jnp
+import os, sys, math, glob, itertools
+
+try:
+    # Try GPU first (default behavior)
+    import jax
+    import jax.numpy as jnp
+
+    # Force a tiny operation to trigger backend initialization early
+    _ = jnp.zeros(1)
+except Exception as e:
+    # GPU backend failed → fall back to CPU
+    os.environ["JAX_PLATFORMS"] = "cpu"
+
+    import jax
+    import jax.numpy as jnp
+
+    print("⚠️ JAX GPU unavailable, falling back to CPU:", e)
+
 from datetime import datetime
 import netCDF4 as nc
 import numpy as np
@@ -14,7 +30,10 @@ import matplotlib.pyplot as plt
 from typing import List
 import seaborn as sns
 from sklearn.decomposition import PCA
-from pymbar.timeseries import detect_equilibration
+try:
+    from pymbar.timeseries import detect_equilibration
+except ImportError:
+    from pymbar.timeseries import detectEquilibration as detect_equilibration
 import warnings
 warnings.filterwarnings('ignore')
 from typing import List
@@ -182,8 +201,15 @@ def compute_MBAR_weights(u_kln, N_k):
     """
     """
     mbar = MBAR(u_kln, N_k, initialize='BAR')
+    
+    try:
+        # PyMBAR 4.x API
+        weights = mbar.weights()
+    except AttributeError:
+        # PyMBAR 3.x API
+        weights = mbar.getWeights()
 
-    return mbar.weights()
+    return weights
 
 
 @staticmethod
