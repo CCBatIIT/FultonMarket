@@ -4,15 +4,12 @@ from openmm.app import *
 from openmmtools.states import SamplerState, ThermodynamicState
 import numpy as np
 import netCDF4 as nc
-import os, sys, faulthandler, mpiplus
+import os, sys, shutil, faulthandler, mpiplus
 
 #Custom Imports
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from FultonMarketUtils import *
 from Randolph import Randolph
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'analysis'))
-from FultonMarketAnalysis import FultonMarketAnalysis
-from FultonMarketAnalysisUtils import PCA_convergence_detection, plot_MRC
 
 #Set some things
 np.seterr(divide='ignore', invalid='ignore')
@@ -124,14 +121,12 @@ class FultonMarket():
         
         
     
-    def run(self, 
-            iter_length: float, 
-            dt: float=2.0, 
+    def run(self,
+            iter_length: float,
+            dt: float=2.0,
             sim_length: int=50,
-            convergence_thresh: float=None,
-            resSeqs: np.array=None,
-            total_sim_time: int=None, 
-            init_overlap_thresh: float=0.5, 
+            total_sim_time: int=None,
+            init_overlap_thresh: float=0.5,
             term_overlap_thresh: float=0.35,
             output_dir: str=os.path.join(os.getcwd(), 'FultonMarket_output/')):
         
@@ -148,16 +143,15 @@ class FultonMarket():
             
 
             sim_length (int):
-                Amount of time for each sub simulation in nanoseconds. This value dictates how often .ncdf objects are truncated, data is store, resampling occures, PCA analysis occurs, andconvergence criterion is evaluated. Default is 50, but 25 is recommended. 
+                Amount of time for each sub simulation in nanoseconds. This is an AGGREGATE
+                time across all replicates: each replicate advances sim_length/n_replicates,
+                which is ceil(sim_length / (n_replicates * iter_length)) exchange iterations.
+                This value dictates how often .ncdf objects are retired and data is stored.
+                Default is 50.
 
-            convergence_thresh (float):
-                Amount of time the simulation needs to be converged according to the mean weighted reduced cartesians of resampled frames. Default is 0.350 . If this is not None, then this criterion will be used over total simulation time (see below). Default is None.
-
-            resSeqs (np.array):
-                Numpy array of resSeqs to use to compute the PCA and evaluate the mean weighted reduced cartesians. If convergence_thresh is not None, this option should be specified. Default is None.
-            
             total_sim_time (int):
-                Aggregate simulation time from all replicates in nanoseconds. Default is None. If this option is specified and convergence_thresh is None, then this criterion will be used to evaluate when the simulation is complete. 
+                Aggregate simulation time from all replicates in nanoseconds. REQUIRED; this
+                criterion is used to evaluate when the simulation is complete.
 
             init_overlap_thresh (float):
                 Acceptance rate threshold during first 50 ns simulation to cause restart. Default is 0.50. 
@@ -170,14 +164,12 @@ class FultonMarket():
         """
 
         # Set attr
+        if total_sim_time is None:
+            raise Exception('You must provide total_sim_time (-t); without it there is no stopping criterion and the simulation would run forever.')
         self.total_sim_time = total_sim_time #ns
         self.iter_length = iter_length #ns
         self.dt = dt
         self.sim_length = sim_length #ns
-        self.resSeqs = resSeqs
-        self.convergence_thresh = convergence_thresh
-        if self.resSeqs is None and self.convergence_thresh is not None: 
-            raise Exception(f'You must provide resSeqs if you intend to use the convergence threshold of {self.convergence_thresh} ns.')
         self.init_overlap_thresh = init_overlap_thresh
         self.term_overlap_thresh = term_overlap_thresh
 
@@ -337,21 +329,23 @@ class FultonMarket():
 
     
     def _configure_experiment_parameters(self):
-        # Assert that no empty save directories have been made
-        assert all([len(os.listdir(os.path.join(self.save_dir, dir))) >= 5 for dir in os.listdir(self.save_dir)]), "You may have an empty save directory, please remove empty or incomplete save directories before continuing :)"
-        
+        # Clear any staging directories left behind by a crash mid-save. These are never
+        # committed save dirs, so discarding them is always safe.
+        for entry in os.listdir(self.save_dir):
+            if entry.startswith('.tmp_'):
+                printf(f'Removing incomplete save staging directory {entry}')
+                shutil.rmtree(os.path.join(self.save_dir, entry))
+
         # Configure experiment parameters
-        self.sim_no = len(os.listdir(self.save_dir))
+        self.sim_no = len([dir for dir in os.listdir(self.save_dir) if not dir.startswith('.')])
         printf(f'Found n_sims_completed to be {self.sim_no}')
-        if self.total_sim_time is not None:
-            self.total_n_sims = np.ceil(self.total_sim_time / self.sim_length)
-            printf(f'Calculated total_n_sims to be {self.total_n_sims}')
+        self.total_n_sims = np.ceil(self.total_sim_time / self.sim_length)
+        printf(f'Calculated total_n_sims to be {self.total_n_sims}')
 
         self.finished = False
         if self.sim_no > 0:
-            self.converged = False # Deprecated and changed to false, was previously _post_analysis()
-    
-            # Evaluate stopping criterion 
+
+            # Evaluate stopping criterion
             self._evaluate_stopping_criterion()
 
 
@@ -370,92 +364,11 @@ class FultonMarket():
         return velocities, positions, box_vectors, state_inds
 
 
-    # @mpiplus.on_single_node(0, broadcast_result=True, sync_nodes=True)
-    # def _post_analysis(self):
-    #     """
-    #     For post analysis:
-    #         1. Make output directory
-    #         2. Read replica expance output with FultonMarketAnalysis
-    #         3. Detect equilibration
-    #         4. Importance resampling (top 99.9%)
-    #         5. Write out trajectory and mbar weights
-    #         6. Compute PCA 
-    #         7. Save out mean weighted reduced cartesian relative to endstate
-    #     """
-
-    #     # Make output directory, if needed
-    #     if not hasattr(self, 'post_analysis_dir'):
-    #         self.post_analysis_dir = os.path.join(self.output_dir, 'post_analysis')
-    #     if not os.path.exists(self.post_analysis_dir):
-    #         os.mkdir(self.post_analysis_dir)
-
-    #     # Determine how much simulation has already been ran
-    #     domain = int(self.sim_no * self.sim_length * self.iter_length * 1000 * 10)
-    #     domain_save_dir = os.path.join(self.post_analysis_dir, str(domain))
-    #     if not os.path.exists(domain_save_dir):
-    #         os.mkdir(domain_save_dir)
-    #     pdb_out = os.path.join(domain_save_dir, f'{self.name}.pdb')
-    #     dcd_out = os.path.join(domain_save_dir, f'{self.name}.dcd')
-    #     weights_out = os.path.join(domain_save_dir, f'{self.name}.npy')
-    #     rc_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc.npy')
-    #     rc_err_out = os.path.join(domain_save_dir, f'{self.name}_mean_weighted_rc_err.npy')
-
-    #     # Interact with FultonmarketAnalysis
-    #     analysis = FultonMarketAnalysis(self.output_dir, self.input_pdb, resSeqs=self.resSeqs, sele_str=self.sele_str) 
-    #     analysis.determine_equilibration()
-    #     analysis.importance_resampling(n_samples=1000)
-    #     analysis.plot_weights(savefig=os.path.join(domain_save_dir, 'weights_plot.png'))
-    #     analysis.write_resampled_traj(pdb_out, dcd_out, weights_out)
-    #     analysis.get_PCA()
-
-    #     # Get mean weighted reduced cartesians
-    #     domains = np.zeros(len(analysis.unshaped_energies), int)
-    #     mean_weighted_rc = np.empty(len(domains))
-    #     mean_weighted_rc_err = np.empty(len(domains))
-    #     frame_counter = 0
-    #     for i, e in enumerate(analysis.unshaped_energies):
-        
-    #         # Analyze simulation domain
-    #         n_frames, n_states = e.shape[:2]
-    #         sim_time_per_frame = self.iter_length * len(analysis.temperatures)
-    #         sub_sim_length = sim_time_per_frame * analysis.energies.shape[0]
-    #         domain = sub_sim_length + domains[i-1]
-    #         domains[i] = domain
-    #         frame_slice = n_frames + frame_counter
-    #         frame_counter += n_frames
-        
-    #         # Get mean weighted rc
-    #         mean_weighted_rc[i], mean_weighted_rc_err[i] = analysis.get_weighted_reduced_cartesian(rc_upper_limit=frame_slice, return_weighted_rc=True)
-
-    #     # Save mean weighted rc
-    #     np.save(rc_out, mean_weighted_rc)
-    #     np.save(rc_err_out, mean_weighted_rc_err)
-    #     plot_MRC(domains, mean_weighted_rc, mean_weighted_rc_err, savefig=os.path.join(domain_save_dir, 'MRC_plot.png'))
-
-    #     # Detect equilibration
-    #     converged = PCA_convergence_detection(mean_weighted_rc, mean_weighted_rc_err)
-    #     sim_time_converged = converged.sum() * self.sim_length * self.iter_length * 1000
-    #     printf(f'Detected {sim_time_converged} ns converged.')
-    #     if self.convergence_thresh is not None and sim_time_converged >= self.convergence_thresh:
-    #         printf(f'Convergence criterion of {self.convergence_thresh} met. Stopping here.') 
-    #         return True
-    #     else:
-            
-    #         if self.convergence_thresh is not None:
-    #             print(f'Convergence criterion of {self.convergence_thresh} not met. Continuing...')
-    #         return False
-
-
     
     def _evaluate_stopping_criterion(self):
 
-        # If convergence threshold is specified, use that
-        if self.convergence_thresh is not None:
-            if self.converged:
-                self.finished = True
-        elif self.total_sim_time is not None:
-            if self.sim_no >= self.total_n_sims:
-                self.finished = True
+        if self.sim_no >= self.total_n_sims:
+            self.finished = True
         
         
 
