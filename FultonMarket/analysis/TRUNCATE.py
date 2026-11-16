@@ -6,6 +6,7 @@ parser.add_argument('pdb_dir', help="path to directory with .pdb files for each 
 parser.add_argument('repexchange_dir', help="path to directory with the replica exchange output directories")
 parser.add_argument('--skip', default=None, type=str, help='comma-delimited list of sim names to skip')
 parser.add_argument('--sim-names', default=None, type=str, help='comma-delimited list of sim names to truncate')
+parser.add_argument('--sele-str', default=None, type=str, help='mdtraj selection string(s) for the ligand(s). For multiple ligand systems, pass a comma-delimited list, e.g. --sele-str "resname UNK","chainid 5". Default is None')
 
 args = parser.parse_args()
 
@@ -34,10 +35,10 @@ except Exception as e:
 
     print("⚠️ JAX GPU unavailable, falling back to CPU:", e)
 
-def perform_truncation(dir, pdb):
-   
+def perform_truncation(dir, pdb, sele_str=None):
+
     # Initialize
-    analysis = FultonMarketAnalysis(dir, pdb)
+    analysis = FultonMarketAnalysis(dir, pdb, sele_str=sele_str)
 
     # Truncate
     analysis.truncate()
@@ -58,6 +59,11 @@ if __name__ == '__main__':
         skip = args.skip.split(',')
     else:
         skip = []
+    # Parse a comma-delimited list of selection strings (for multiple ligand systems)
+    if args.sele_str is not None:
+        sele_str = [s.strip() for s in args.sele_str.split(',') if s.strip()]
+    else:
+        sele_str = None
     
 
     # Set up arguments
@@ -73,8 +79,10 @@ if __name__ == '__main__':
         if already_done >= no_dirs - 2:
             continue
         pdb = os.path.join(pdb_dir, "_".join(sim.split('_')[:-1]) + '.pdb')
+        # Apo systems have no ligand to correct for
+        sim_sele_str = None if sim.startswith('apo') else sele_str
         try:
-            perform_truncation(dir, pdb)
+            perform_truncation(dir, pdb, sele_str=sim_sele_str)
         except:
             print(f'[TRUNCATION FAILED] {sim}', flush=True)
             pass

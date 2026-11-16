@@ -11,7 +11,7 @@ parser.add_argument('--no-replace', action='store_true', help="choose not to use
 parser.add_argument('--upper-limit', default=None, type=int, help="upper limit (number of frames) for resampling. Default is None, meaning all of the frames from replica exchange will be included in resampling.")
 parser.add_argument('--sim-names', default=None, help="Comma delimited string of replica exchange names to analyze. EX: drug_1,drug_2,drug_3")
 parser.add_argument('--skip', default=[], help="Comma delimited string of replica exchaange names to skip analysis")
-parser.add_argument('--sele-str', default=None, type=str, help="mdtraj selection string for the ligand. Default is None")
+parser.add_argument('--sele-str', default=None, type=str, help='mdtraj selection string(s) for the ligand(s). For multiple ligand systems, pass a comma-delimited list, e.g. --sele-str "resname UNK","chainid 5". Default is None')
 parser.add_argument('--force', action='store_true', default=False, help='Force the resample, even if output files already exist.')
 parser.add_argument('--no-correction', action='store_true', default=False, help='Do not perform any corrections (translations, alignment, wrapping).')
 args = parser.parse_args()
@@ -110,7 +110,8 @@ if __name__ == '__main__':
             else:
                 replace = True
             if not sim.startswith('apo') and args.sele_str is not None:
-               sele_str = args.sele_str
+               # Parse a comma-delimited list of selection strings (for multiple ligand systems)
+               sele_str = [s.strip() for s in args.sele_str.split(',') if s.strip()]
             else:
                sele_str = None
 
